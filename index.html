@@ -75,6 +75,7 @@
           <button class="tab active" type="button" data-tab="itinerary">行程</button>
           <button class="tab" type="button" data-tab="points">點位</button>
           <button class="tab" type="button" data-tab="budget">預算</button>
+          <button class="tab" type="button" data-tab="expenses">記帳</button>
           <button class="tab" type="button" data-tab="checklist">清單</button>
         </nav>
 
@@ -100,6 +101,47 @@
         <section class="view" id="budget" aria-label="交通與預算">
           <div class="budget-summary" id="budgetSummary"></div>
           <div class="budget-list" id="budgetList"></div>
+        </section>
+
+        <section class="view" id="expenses" aria-label="旅行記帳">
+          <form class="expense-form" id="expenseForm">
+            <label>
+              日期
+              <select id="expenseDate" required></select>
+            </label>
+            <label>
+              分類
+              <select id="expenseCategory" required></select>
+            </label>
+            <label>
+              金額 JPY
+              <input id="expenseAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="1200" required />
+            </label>
+            <label>
+              項目
+              <input id="expenseName" type="text" maxlength="40" placeholder="午餐、車票、伴手禮" required />
+            </label>
+            <label class="expense-note-field">
+              備註
+              <input id="expenseNote" type="text" maxlength="80" placeholder="店名或付款方式" />
+            </label>
+            <button class="text-button primary-action" type="submit">新增</button>
+          </form>
+
+          <div class="expense-summary" id="expenseSummary"></div>
+
+          <div class="toolbar expense-filters">
+            <label>
+              日期
+              <select id="expenseDayFilter"></select>
+            </label>
+            <label>
+              分類
+              <select id="expenseCategoryFilter"></select>
+            </label>
+          </div>
+
+          <div class="expense-list" id="expenseList"></div>
         </section>
 
         <section class="view" id="checklist" aria-label="行前清單">

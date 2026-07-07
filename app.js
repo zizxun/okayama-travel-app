@@ -283,8 +283,13 @@ const phrases = [
 const STORAGE_KEYS = {
   itinerary: "okayamaItineraryV2",
   checklist: "okayamaChecklist",
-  memo: "okayamaTripMemo"
+  memo: "okayamaTripMemo",
+  expenses: "okayamaExpensesV1"
 };
+
+const expenseCategories = ["交通", "門票", "餐飲", "購物", "住宿", "其他"];
+const allExpenseDays = "全部日期";
+const allExpenseCategories = "全部分類";
 
 const defaultDays = clone(days);
 let tripDays = loadTripDays();
@@ -331,6 +336,31 @@ function loadTripDays() {
 
 function saveTripDays() {
   writeJson(STORAGE_KEYS.itinerary, tripDays);
+}
+
+function loadExpenses() {
+  const saved = readJson(STORAGE_KEYS.expenses, []);
+  if (!Array.isArray(saved)) return [];
+
+  return saved
+    .map((expense) => ({
+      id: String(expense.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+      date: String(expense.date || tripDays[0]?.date || ""),
+      category: expenseCategories.includes(expense.category) ? expense.category : "其他",
+      amount: Number(expense.amount) || 0,
+      name: String(expense.name || "").trim(),
+      note: String(expense.note || "").trim(),
+      createdAt: String(expense.createdAt || new Date().toISOString())
+    }))
+    .filter((expense) => expense.amount > 0 && expense.name);
+}
+
+function saveExpenses(expenses) {
+  writeJson(STORAGE_KEYS.expenses, expenses);
+}
+
+function formatYen(amount) {
+  return `¥${Number(amount || 0).toLocaleString("ja-JP")}`;
 }
 
 function getActiveDay() {
@@ -743,6 +773,123 @@ function renderBudget() {
     .join("");
 }
 
+function renderExpenseControls() {
+  const dateOptions = tripDays
+    .map((day) => `<option value="${escapeAttr(day.date)}">${escapeHtml(`${day.date} ${day.title}`)}</option>`)
+    .join("");
+  const categoryOptions = expenseCategories
+    .map((category) => `<option value="${escapeAttr(category)}">${escapeHtml(category)}</option>`)
+    .join("");
+
+  $("#expenseDate").innerHTML = dateOptions;
+  $("#expenseDate").value = getActiveDay()?.date || tripDays[0]?.date || "";
+  $("#expenseCategory").innerHTML = categoryOptions;
+  $("#expenseDayFilter").innerHTML = `<option value="${escapeAttr(allExpenseDays)}">${escapeHtml(allExpenseDays)}</option>${dateOptions}`;
+  $("#expenseCategoryFilter").innerHTML = `<option value="${escapeAttr(allExpenseCategories)}">${escapeHtml(allExpenseCategories)}</option>${categoryOptions}`;
+
+  $("#expenseDate").addEventListener("change", renderExpenses);
+  $("#expenseDayFilter").addEventListener("change", renderExpenses);
+  $("#expenseCategoryFilter").addEventListener("change", renderExpenses);
+  $("#expenseForm").addEventListener("submit", addExpense);
+}
+
+function addExpense(event) {
+  event.preventDefault();
+
+  const amount = Math.round(Number($("#expenseAmount").value));
+  const name = $("#expenseName").value.trim();
+  if (!amount || amount < 1 || !name) return;
+
+  const expense = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    date: $("#expenseDate").value,
+    category: $("#expenseCategory").value,
+    amount,
+    name,
+    note: $("#expenseNote").value.trim(),
+    createdAt: new Date().toISOString()
+  };
+
+  const expenses = loadExpenses();
+  expenses.unshift(expense);
+  saveExpenses(expenses);
+
+  event.currentTarget.reset();
+  $("#expenseDate").value = expense.date;
+  $("#expenseCategory").value = expense.category;
+  $("#expenseName").focus();
+  renderExpenses();
+}
+
+function deleteExpense(id) {
+  saveExpenses(loadExpenses().filter((expense) => expense.id !== id));
+  renderExpenses();
+}
+
+function renderExpenses() {
+  const expenses = loadExpenses();
+  const selectedDay = $("#expenseDayFilter").value || allExpenseDays;
+  const selectedCategory = $("#expenseCategoryFilter").value || allExpenseCategories;
+  const activeExpenseDate = $("#expenseDate").value || getActiveDay()?.date || tripDays[0]?.date || "";
+  const filtered = expenses.filter((expense) => {
+    const dayMatch = selectedDay === allExpenseDays || expense.date === selectedDay;
+    const categoryMatch = selectedCategory === allExpenseCategories || expense.category === selectedCategory;
+    return dayMatch && categoryMatch;
+  });
+  const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const filteredTotal = filtered.reduce((sum, expense) => sum + expense.amount, 0);
+  const activeDayTotal = expenses
+    .filter((expense) => expense.date === activeExpenseDate)
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const categoryTotals = expenseCategories.map((category) => [
+    category,
+    expenses.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0)
+  ]);
+
+  $("#expenseSummary").innerHTML = `
+    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong><span class="meta">這支手機上的記帳</span></div>
+    <div class="stat"><span>目前日期</span><strong>${formatYen(activeDayTotal)}</strong><span class="meta">${escapeHtml(activeExpenseDate || "未選日期")}</span></div>
+    <div class="stat"><span>目前篩選</span><strong>${formatYen(filteredTotal)}</strong><span class="meta">${filtered.length} 筆</span></div>
+    <div class="expense-breakdown" aria-label="分類小計">
+      ${categoryTotals
+        .map(
+          ([category, amount]) => `
+            <span>
+              <b>${escapeHtml(category)}</b>
+              ${formatYen(amount)}
+            </span>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+
+  $("#expenseList").innerHTML = filtered.length
+    ? filtered
+        .map(
+          (expense) => `
+            <article class="expense-item">
+              <div>
+                <strong>${escapeHtml(expense.date)}</strong>
+                <div class="meta">${escapeHtml(expense.category)}</div>
+              </div>
+              <div>
+                <h3>${escapeHtml(expense.name)}</h3>
+                ${expense.note ? `<div class="meta">${escapeHtml(expense.note)}</div>` : ""}
+              </div>
+              <div class="expense-amount">${formatYen(expense.amount)}</div>
+              <button class="text-button danger-action expense-delete" type="button" data-expense-id="${escapeAttr(expense.id)}">刪除</button>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">還沒有符合條件的記帳。新增一筆後會存在這支手機的 Safari 網站資料裡。</p>`;
+
+  $all(".expense-delete").forEach((button) => {
+    button.addEventListener("click", () => deleteExpense(button.dataset.expenseId));
+  });
+}
+
 function renderChecklist() {
   const saved = readJson(STORAGE_KEYS.checklist, {});
   $("#checklistItems").innerHTML = checklist
@@ -809,10 +956,11 @@ function initTripMemo() {
 }
 
 async function clearLocalData() {
-  if (!confirm("清除這支手機上的行程修改、清單勾選與離線快取？")) return;
+  if (!confirm("清除這支手機上的行程修改、記帳、清單勾選與離線快取？")) return;
   localStorage.removeItem(STORAGE_KEYS.itinerary);
   localStorage.removeItem(STORAGE_KEYS.checklist);
   localStorage.removeItem(STORAGE_KEYS.memo);
+  localStorage.removeItem(STORAGE_KEYS.expenses);
   if ("caches" in window) {
     const cacheKeys = await caches.keys();
     await Promise.all(cacheKeys.filter((key) => key.startsWith("okayama-trip")).map((key) => caches.delete(key)));
@@ -823,6 +971,7 @@ async function clearLocalData() {
   if (memo) memo.value = "";
   renderDayNav();
   renderDayDetail();
+  renderExpenses();
   renderChecklist();
 }
 
@@ -847,6 +996,8 @@ function init() {
   renderFilters();
   renderPoints();
   renderBudget();
+  renderExpenseControls();
+  renderExpenses();
   renderChecklist();
   renderPhrases();
 }

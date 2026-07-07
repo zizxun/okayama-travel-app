@@ -344,7 +344,7 @@ p {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   margin: 16px 0;
   position: sticky;
@@ -382,6 +382,13 @@ p {
   color: #8a2f1d;
   border-color: #e3b2a4;
   background: #fff7f4;
+}
+
+.text-button.primary-action {
+  color: #fff;
+  border-color: var(--teal);
+  background: var(--teal);
+  font-weight: 800;
 }
 
 .text-button.active-edit {
@@ -700,7 +707,8 @@ p {
   font-weight: 800;
 }
 
-select {
+select,
+.expense-form input {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -709,8 +717,13 @@ select {
   padding: 0 12px;
 }
 
+.expense-form input {
+  font: inherit;
+}
+
 .point-list,
 .budget-list,
+.expense-list,
 .checklist {
   display: grid;
   gap: 10px;
@@ -718,6 +731,7 @@ select {
 
 .point-item,
 .budget-item,
+.expense-item,
 .check-item {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -781,6 +795,82 @@ select {
   color: var(--vermilion);
   font-weight: 900;
   white-space: nowrap;
+}
+
+.expense-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr)) minmax(160px, 1.2fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.expense-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.expense-note-field {
+  min-width: min(260px, 100%);
+}
+
+.expense-form .primary-action {
+  min-width: 92px;
+}
+
+.expense-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.expense-breakdown {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.expense-breakdown span {
+  min-height: 54px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f5f8f6;
+  color: var(--muted);
+  padding: 9px 10px;
+  font-size: 0.88rem;
+}
+
+.expense-breakdown b {
+  display: block;
+  color: var(--ink);
+}
+
+.expense-item {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.expense-amount {
+  color: var(--vermilion);
+  font-size: 1.08rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.empty-state {
+  margin: 0;
+  background: var(--surface);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  padding: 16px;
 }
 
 .check-item label {
@@ -886,6 +976,13 @@ select {
     grid-template-columns: 86px minmax(0, 1fr);
   }
 
+  .expense-form,
+  .expense-summary,
+  .expense-breakdown,
+  .expense-item {
+    grid-template-columns: 1fr;
+  }
+
   .editable-slot,
   .slot-fields,
   .list-row {
@@ -927,6 +1024,7 @@ select {
   .day-detail,
   .point-item,
   .budget-item,
+  .expense-item,
   .check-item,
   .phrase-panel {
     box-shadow: none;
