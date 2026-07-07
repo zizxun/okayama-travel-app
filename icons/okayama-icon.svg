@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="岡山行程助手圖示">
+  <rect width="512" height="512" rx="96" fill="#0f766e"/>
+  <path d="M68 340c62-58 116-84 174-77 67 8 103 65 202 19v94H68z" fill="#d8efeb"/>
+  <path d="M124 184h264l-28 44H152z" fill="#f7f8f5"/>
+  <path d="M166 228h180v118H166z" fill="#20242a"/>
+  <path d="M191 252h34v94h-34zm48 0h34v94h-34zm48 0h34v94h-34z" fill="#f7f8f5"/>
+  <path d="M143 184l113-88 113 88z" fill="#d95535"/>
+  <path d="M214 184l42-48 42 48z" fill="#b88514"/>
+  <circle cx="382" cy="128" r="30" fill="#f7f8f5"/>
+  <path d="M106 376h300" stroke="#20242a" stroke-width="22" stroke-linecap="round"/>
+</svg>

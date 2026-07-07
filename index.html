@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="岡山行程" />
+    <title>岡山行程助手</title>
+    <meta
+      name="description"
+      content="2026/8/13-8/19 岡山、宮島、姬路、倉敷、廣島旅行助手"
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/okayama-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/okayama-icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">2026/8/13-8/19</p>
+          <h1>岡山行程助手</h1>
+        </div>
+        <div class="top-actions">
+          <button class="text-button" id="editModeToggle" type="button">編輯</button>
+          <button class="icon-button" id="printBtn" type="button" aria-label="列印行程" title="列印行程">
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M6 9V3h12v6" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <path d="M6 14h12v7H6z" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <section class="trip-summary" aria-label="旅行總覽">
+          <div class="summary-card">
+            <p class="eyebrow">Trip</p>
+            <h2>機票時間</h2>
+            <div class="flight-list" aria-label="機票時間">
+              <div class="flight-card">
+                <span>去程</span>
+                <strong>8/13 四 11:30-15:05</strong>
+                <small>抵達岡山桃太郎機場</small>
+              </div>
+              <div class="flight-card">
+                <span>回程</span>
+                <strong>8/19 三 15:55-17:40</strong>
+                <small>岡山桃太郎機場出發</small>
+              </div>
+            </div>
+            <label class="memo-field">
+              <span>備忘錄</span>
+              <textarea id="tripMemo" rows="5" placeholder="可以記航班訂位代號、飯店備註、想買的東西、同行提醒..."></textarea>
+            </label>
+          </div>
+
+          <figure class="pass-map-card">
+            <div class="map-heading">
+              <div>
+                <p class="eyebrow">JR-WEST Pass</p>
+                <h2>關西＆廣島地區鐵路周遊券範圍</h2>
+              </div>
+              <a class="text-button map-open" href="./assets/kansai_hiroshima_map.jpg" target="_blank" rel="noreferrer">開圖</a>
+            </div>
+            <img src="./assets/kansai_hiroshima_map.jpg" alt="關西＆廣島地區鐵路周遊券可使用區域地圖" />
+            <figcaption>重點看岡山、廣島、宮島、姬路與關西方向；實際可搭列車仍以 JR-WEST 官方規則為準。</figcaption>
+          </figure>
+        </section>
+
+        <nav class="tabs" aria-label="主要功能">
+          <button class="tab active" type="button" data-tab="itinerary">行程</button>
+          <button class="tab" type="button" data-tab="points">點位</button>
+          <button class="tab" type="button" data-tab="budget">預算</button>
+          <button class="tab" type="button" data-tab="checklist">清單</button>
+        </nav>
+
+        <section class="view active" id="itinerary" aria-label="每日行程">
+          <div class="day-nav" id="dayNav"></div>
+          <article class="day-detail" id="dayDetail"></article>
+        </section>
+
+        <section class="view" id="points" aria-label="地圖點位">
+          <div class="toolbar">
+            <label>
+              日期
+              <select id="pointDayFilter"></select>
+            </label>
+            <label>
+              類型
+              <select id="pointCategoryFilter"></select>
+            </label>
+          </div>
+          <div class="point-list" id="pointList"></div>
+        </section>
+
+        <section class="view" id="budget" aria-label="交通與預算">
+          <div class="budget-summary" id="budgetSummary"></div>
+          <div class="budget-list" id="budgetList"></div>
+        </section>
+
+        <section class="view" id="checklist" aria-label="行前清單">
+          <div class="toolbar checklist-tools">
+            <button class="text-button" id="resetChecklist" type="button">重設清單</button>
+            <button class="text-button danger-action" id="clearLocalData" type="button">清除本機資料</button>
+          </div>
+          <div class="checklist" id="checklistItems"></div>
+          <section class="phrase-panel">
+            <h2>日文小句</h2>
+            <div id="phraseList"></div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator && location.protocol !== "file:") {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
