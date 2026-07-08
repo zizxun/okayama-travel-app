@@ -1,4 +1,4 @@
-const CACHE_NAME = "okayama-trip-v8";
+const CACHE_NAME = "okayama-trip-v11";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,7 +6,6 @@ const APP_SHELL = [
   "./app.js",
   "./manifest.webmanifest",
   "./assets/kansai_hiroshima_map.jpg",
-  "./icons/okayama-icon.svg",
   "./icons/okayama-icon-192.png",
   "./icons/okayama-icon-512.png"
 ];

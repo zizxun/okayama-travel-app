@@ -284,18 +284,59 @@ const STORAGE_KEYS = {
   itinerary: "okayamaItineraryV2",
   checklist: "okayamaChecklist",
   memo: "okayamaTripMemo",
-  expenses: "okayamaExpensesV1"
+  expenses: "okayamaExpensesV1",
+  weather: "okayamaWeatherCacheV1"
 };
 
+const TRIP_YEAR = 2026;
 const expenseCategories = ["交通", "門票", "餐飲", "購物", "住宿", "其他"];
+const expenseMembers = ["XUN", "UT"];
+const publicExpenseAccount = "公帳";
+const expensePayers = [...expenseMembers, publicExpenseAccount];
+const splitOptions = [
+  ["split", "要分帳"],
+  ["personal", "不分帳"]
+];
 const allExpenseDays = "全部日期";
 const allExpenseCategories = "全部分類";
+const allExpensePayers = "全部付款人";
+
+const weatherLocations = {
+  "0813": { name: "岡山", latitude: 34.6618, longitude: 133.935 },
+  "0814": { name: "宮島", latitude: 34.2953, longitude: 132.3199 },
+  "0815": { name: "姬路", latitude: 34.8394, longitude: 134.6939 },
+  "0816": { name: "倉敷", latitude: 34.585, longitude: 133.7719 },
+  "0817": { name: "岡山", latitude: 34.6618, longitude: 133.935 },
+  "0818": { name: "廣島", latitude: 34.3853, longitude: 132.4553 },
+  "0819": { name: "岡山機場", latitude: 34.7569, longitude: 133.8553 }
+};
+
+const weatherCodeLabels = {
+  0: "晴朗",
+  1: "大致晴朗",
+  2: "局部多雲",
+  3: "陰天",
+  45: "有霧",
+  48: "霧凇",
+  51: "毛毛雨",
+  53: "毛毛雨",
+  55: "毛毛雨",
+  61: "小雨",
+  63: "雨",
+  65: "大雨",
+  80: "陣雨",
+  81: "陣雨",
+  82: "強陣雨",
+  95: "雷雨",
+  96: "雷雨",
+  99: "雷雨"
+};
 
 const defaultDays = clone(days);
 let tripDays = loadTripDays();
 
 const state = {
-  activeDay: tripDays[0]?.key || defaultDays[0].key,
+  activeDay: getInitialActiveDayKey(),
   activeTab: "itinerary",
   editMode: false
 };
@@ -338,6 +379,15 @@ function saveTripDays() {
   writeJson(STORAGE_KEYS.itinerary, tripDays);
 }
 
+function normalizeExpensePayer(payer) {
+  const legacyPayers = {
+    我: "XUN",
+    同行者: "UT"
+  };
+  const normalizedPayer = legacyPayers[payer] || payer;
+  return expensePayers.includes(normalizedPayer) ? normalizedPayer : expenseMembers[0];
+}
+
 function loadExpenses() {
   const saved = readJson(STORAGE_KEYS.expenses, []);
   if (!Array.isArray(saved)) return [];
@@ -347,6 +397,8 @@ function loadExpenses() {
       id: String(expense.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
       date: String(expense.date || tripDays[0]?.date || ""),
       category: expenseCategories.includes(expense.category) ? expense.category : "其他",
+      payer: normalizeExpensePayer(expense.payer),
+      split: typeof expense.split === "boolean" ? expense.split : Number(expense.people || 1) > 1,
       amount: Number(expense.amount) || 0,
       name: String(expense.name || "").trim(),
       note: String(expense.note || "").trim(),
@@ -360,7 +412,26 @@ function saveExpenses(expenses) {
 }
 
 function formatYen(amount) {
-  return `¥${Number(amount || 0).toLocaleString("ja-JP")}`;
+  return `¥${Math.round(Number(amount || 0)).toLocaleString("ja-JP")}`;
+}
+
+function getTripIsoDate(day) {
+  const [month, date] = String(day.date).split("/").map(Number);
+  return `${TRIP_YEAR}-${String(month).padStart(2, "0")}-${String(date).padStart(2, "0")}`;
+}
+
+function getTodayIsoDate() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function getTodayTripDayKey() {
+  const today = getTodayIsoDate();
+  return tripDays.find((day) => getTripIsoDate(day) === today)?.key || "";
+}
+
+function getInitialActiveDayKey() {
+  return getTodayTripDayKey() || tripDays[0]?.key || defaultDays[0].key;
 }
 
 function getActiveDay() {
@@ -418,9 +489,11 @@ function getMapSearchUrl(query) {
 }
 
 function renderDayActions(day) {
+  const nextStop = getNextScheduleStop(day);
   return `
     <div class="day-actions">
       <span class="badge ${day.passCovered ? "" : "self"}">${escapeHtml(day.pass)}</span>
+      <a class="text-button map-action" href="${escapeAttr(nextStop.url)}" target="_blank" rel="noreferrer">下一站</a>
       <a class="text-button map-action" href="${escapeAttr(getDayRouteUrl(day))}" target="_blank" rel="noreferrer">今日地圖</a>
     </div>
   `;
@@ -441,6 +514,54 @@ function getDayRouteUrl(day) {
   });
   if (waypoints) params.set("waypoints", waypoints);
   return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function normalizeMapText(value) {
+  return String(value || "")
+    .replace(/[0-9０-９:：/／\-–—~～\s]/g, "")
+    .replace(/[，。；、,.()（）]/g, "")
+    .toLowerCase();
+}
+
+function getScheduleSearchQuery(day, text) {
+  const cleanText = String(text || "").replace(/\s+/g, " ").trim();
+  const normalizedText = normalizeMapText(cleanText);
+  const candidates = dayMapQueries[day.key] || [];
+  const match = candidates.find(([label]) => {
+    const normalizedLabel = normalizeMapText(label);
+    return normalizedLabel && (normalizedText.includes(normalizedLabel) || normalizedLabel.includes(normalizedText.slice(0, 6)));
+  });
+  if (match) return match[1];
+
+  return `${cleanText} ${day.title}`.trim();
+}
+
+function getScheduleMapUrl(day, text) {
+  return getMapSearchUrl(getScheduleSearchQuery(day, text));
+}
+
+function parseScheduleStartMinutes(time) {
+  const match = String(time || "").match(/(\d{1,2})[:：](\d{2})/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function getNextScheduleStop(day) {
+  const fallback = day.schedule[0] || ["", day.title];
+  const isToday = getTripIsoDate(day) === getTodayIsoDate();
+  if (!isToday) {
+    return { index: 0, text: fallback[1], url: getScheduleMapUrl(day, fallback[1]) };
+  }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const index = day.schedule.findIndex(([time]) => {
+    const start = parseScheduleStartMinutes(time);
+    return start !== null && start >= currentMinutes - 10;
+  });
+  const scheduleIndex = index >= 0 ? index : Math.max(0, day.schedule.length - 1);
+  const item = day.schedule[scheduleIndex] || fallback;
+  return { index: scheduleIndex, text: item[1], url: getScheduleMapUrl(day, item[1]) };
 }
 
 function renderDayMapLinks(day) {
@@ -466,15 +587,142 @@ function renderDayMapLinks(day) {
   `;
 }
 
+function renderWeatherPanel(day) {
+  const location = weatherLocations[day.key];
+  if (!location) return "";
+
+  return `
+    <section class="weather-panel" id="weatherPanel" data-weather-day="${escapeAttr(day.key)}">
+      <div>
+        <h3>${escapeHtml(location.name)}天氣</h3>
+        <p class="meta">讀取溫度中...</p>
+      </div>
+      <button class="text-button weather-refresh" type="button" data-refresh-weather>更新</button>
+    </section>
+  `;
+}
+
+function getWeatherLabel(code) {
+  return weatherCodeLabels[Number(code)] || "天氣更新";
+}
+
+function getWeatherCacheKey(day) {
+  return `${day.key}:${getTripIsoDate(day)}`;
+}
+
+function getCachedWeather(day) {
+  const cache = readJson(STORAGE_KEYS.weather, {});
+  const item = cache[getWeatherCacheKey(day)];
+  if (!item || !item.data || !item.savedAt) return null;
+  return item;
+}
+
+function saveWeatherCache(day, data) {
+  const cache = readJson(STORAGE_KEYS.weather, {});
+  cache[getWeatherCacheKey(day)] = {
+    savedAt: new Date().toISOString(),
+    data
+  };
+  writeJson(STORAGE_KEYS.weather, cache);
+}
+
+function isFreshWeatherCache(item) {
+  return Date.now() - new Date(item.savedAt).getTime() < 30 * 60 * 1000;
+}
+
+function renderWeatherData(day, data, stale = false) {
+  const panel = document.querySelector(`[data-weather-day="${escapeAttr(day.key)}"]`);
+  if (!panel) return;
+
+  const location = weatherLocations[day.key];
+  const current = data.current || {};
+  const daily = data.daily || {};
+  const dailyIndex = Array.isArray(daily.time) ? daily.time.indexOf(getTripIsoDate(day)) : -1;
+  const hasDaily = dailyIndex >= 0;
+  const temp = Number.isFinite(Number(current.temperature_2m)) ? `${Math.round(Number(current.temperature_2m))}°C` : "--";
+  const apparent = Number.isFinite(Number(current.apparent_temperature)) ? `${Math.round(Number(current.apparent_temperature))}°C` : "--";
+  const humidity = Number.isFinite(Number(current.relative_humidity_2m)) ? `${Math.round(Number(current.relative_humidity_2m))}%` : "--";
+  const rain = Number.isFinite(Number(current.precipitation)) ? `${Number(current.precipitation).toFixed(1)}mm` : "--";
+  const dailyMin = Number(daily.temperature_2m_min?.[dailyIndex]);
+  const dailyMax = Number(daily.temperature_2m_max?.[dailyIndex]);
+  const dailyRain = daily.precipitation_probability_max?.[dailyIndex] ?? "--";
+  const dailyText = hasDaily
+    ? `${Number.isFinite(dailyMin) ? Math.round(dailyMin) : "--"}-${Number.isFinite(dailyMax) ? Math.round(dailyMax) : "--"}°C / 降雨 ${dailyRain}%`
+    : "行程日前 16 天內會顯示當日預報";
+
+  panel.innerHTML = `
+    <div>
+      <h3>${escapeHtml(location.name)}天氣</h3>
+      <div class="weather-grid">
+        <div><span>現在</span><strong>${escapeHtml(temp)}</strong><small>${escapeHtml(getWeatherLabel(current.weather_code))}</small></div>
+        <div><span>體感</span><strong>${escapeHtml(apparent)}</strong><small>濕度 ${escapeHtml(humidity)}</small></div>
+        <div><span>${escapeHtml(day.date)} 預報</span><strong>${escapeHtml(dailyText)}</strong><small>目前雨量 ${escapeHtml(rain)}</small></div>
+      </div>
+      <p class="meta">資料來源 Open-Meteo${stale ? "，目前顯示快取資料" : ""}</p>
+    </div>
+    <button class="text-button weather-refresh" type="button" data-refresh-weather>更新</button>
+  `;
+  panel.querySelector("[data-refresh-weather]").addEventListener("click", () => loadWeather(day, true));
+}
+
+function renderWeatherError(day, message) {
+  const panel = document.querySelector(`[data-weather-day="${escapeAttr(day.key)}"]`);
+  if (!panel) return;
+  const location = weatherLocations[day.key];
+  panel.innerHTML = `
+    <div>
+      <h3>${escapeHtml(location.name)}天氣</h3>
+      <p class="meta">${escapeHtml(message)}</p>
+    </div>
+    <button class="text-button weather-refresh" type="button" data-refresh-weather>重試</button>
+  `;
+  panel.querySelector("[data-refresh-weather]").addEventListener("click", () => loadWeather(day, true));
+}
+
+async function loadWeather(day, force = false) {
+  const location = weatherLocations[day.key];
+  if (!location || !$("#weatherPanel")) return;
+
+  const cached = getCachedWeather(day);
+  if (!force && cached && isFreshWeatherCache(cached)) {
+    renderWeatherData(day, cached.data);
+    return;
+  }
+
+  try {
+    const url = new URL("https://api.open-meteo.com/v1/forecast");
+    url.searchParams.set("latitude", String(location.latitude));
+    url.searchParams.set("longitude", String(location.longitude));
+    url.searchParams.set("current", "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m");
+    url.searchParams.set("daily", "temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code");
+    url.searchParams.set("timezone", "Asia/Tokyo");
+    url.searchParams.set("forecast_days", "16");
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("weather fetch failed");
+    const data = await response.json();
+    saveWeatherCache(day, data);
+    renderWeatherData(day, data);
+  } catch {
+    if (cached) {
+      renderWeatherData(day, cached.data, true);
+      return;
+    }
+    renderWeatherError(day, "目前無法取得天氣；有網路時可以再更新。");
+  }
+}
+
 function renderDayNav() {
   const nav = $("#dayNav");
+  const todayKey = getTodayTripDayKey();
   nav.innerHTML = tripDays
     .map(
       (day) => `
-      <button class="day-button ${day.key === state.activeDay ? "active" : ""}" type="button" data-day="${escapeAttr(day.key)}">
+      <button class="day-button ${day.key === state.activeDay ? "active" : ""} ${day.key === todayKey ? "today" : ""}" type="button" data-day="${escapeAttr(day.key)}">
         <strong>${escapeHtml(day.date)} ${escapeHtml(day.weekday)}</strong>
         <span>${escapeHtml(day.title)}</span>
         <span>${escapeHtml(day.pass)}</span>
+        ${day.key === todayKey ? `<span class="today-marker">今天</span>` : ""}
       </button>`
     )
     .join("");
@@ -502,13 +750,17 @@ function renderDayDetail() {
         </div>
         ${renderDayActions(day)}
       </div>
+      ${renderWeatherPanel(day)}
       <div class="schedule">
         ${day.schedule
           .map(
-            ([time, text]) => `
-            <div class="slot">
+            ([time, text], index) => `
+            <div class="slot ${index === getNextScheduleStop(day).index ? "next-slot" : ""}">
               <time>${escapeHtml(time)}</time>
-              <div>${escapeHtml(text)}</div>
+              <div>
+                <div>${escapeHtml(text)}</div>
+                <a class="slot-map-link" href="${escapeAttr(getScheduleMapUrl(day, text))}" target="_blank" rel="noreferrer">導航</a>
+              </div>
             </div>`
           )
           .join("")}
@@ -520,6 +772,7 @@ function renderDayDetail() {
         ${renderCleanInfoBlock("備案", day.backup)}
       </div>
     `;
+    loadWeather(day);
     return;
   }
 
@@ -538,6 +791,7 @@ function renderDayDetail() {
       <button class="text-button" type="button" data-add-list="backup">新增景點/備案</button>
       <button class="text-button subtle" type="button" data-reset-day>還原本日</button>
     </div>
+    ${renderWeatherPanel(day)}
     <div class="schedule editable-schedule">
       ${day.schedule
         .map(
@@ -571,6 +825,7 @@ function renderDayDetail() {
   `;
 
   bindDayEditor(day);
+  loadWeather(day);
 }
 
 function renderCleanInfoBlock(title, items) {
@@ -721,8 +976,11 @@ function renderFilters() {
 
   dayFilter.innerHTML = dayOptions.map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join("");
   categoryFilter.innerHTML = categoryOptions.map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join("");
-  dayFilter.addEventListener("change", renderPoints);
-  categoryFilter.addEventListener("change", renderPoints);
+  if (dayFilter.dataset.bound !== "true") {
+    dayFilter.addEventListener("change", renderPoints);
+    categoryFilter.addEventListener("change", renderPoints);
+    dayFilter.dataset.bound = "true";
+  }
 }
 
 function renderPoints() {
@@ -780,17 +1038,32 @@ function renderExpenseControls() {
   const categoryOptions = expenseCategories
     .map((category) => `<option value="${escapeAttr(category)}">${escapeHtml(category)}</option>`)
     .join("");
+  const payerOptions = expensePayers
+    .map((payer) => `<option value="${escapeAttr(payer)}">${escapeHtml(payer)}</option>`)
+    .join("");
+  const splitSelectOptions = splitOptions
+    .map(([value, label]) => `<option value="${escapeAttr(value)}">${escapeHtml(label)}</option>`)
+    .join("");
 
   $("#expenseDate").innerHTML = dateOptions;
   $("#expenseDate").value = getActiveDay()?.date || tripDays[0]?.date || "";
   $("#expenseCategory").innerHTML = categoryOptions;
+  $("#expensePayer").innerHTML = payerOptions;
+  $("#expensePayer").value = expenseMembers[0];
+  $("#expenseSplit").innerHTML = splitSelectOptions;
+  $("#expenseSplit").value = "split";
   $("#expenseDayFilter").innerHTML = `<option value="${escapeAttr(allExpenseDays)}">${escapeHtml(allExpenseDays)}</option>${dateOptions}`;
   $("#expenseCategoryFilter").innerHTML = `<option value="${escapeAttr(allExpenseCategories)}">${escapeHtml(allExpenseCategories)}</option>${categoryOptions}`;
+  $("#expensePayerFilter").innerHTML = `<option value="${escapeAttr(allExpensePayers)}">${escapeHtml(allExpensePayers)}</option>${payerOptions}`;
 
-  $("#expenseDate").addEventListener("change", renderExpenses);
-  $("#expenseDayFilter").addEventListener("change", renderExpenses);
-  $("#expenseCategoryFilter").addEventListener("change", renderExpenses);
-  $("#expenseForm").addEventListener("submit", addExpense);
+  if ($("#expenseForm").dataset.bound !== "true") {
+    $("#expenseDate").addEventListener("change", renderExpenses);
+    $("#expenseDayFilter").addEventListener("change", renderExpenses);
+    $("#expenseCategoryFilter").addEventListener("change", renderExpenses);
+    $("#expensePayerFilter").addEventListener("change", renderExpenses);
+    $("#expenseForm").addEventListener("submit", addExpense);
+    $("#expenseForm").dataset.bound = "true";
+  }
 }
 
 function addExpense(event) {
@@ -804,6 +1077,8 @@ function addExpense(event) {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     date: $("#expenseDate").value,
     category: $("#expenseCategory").value,
+    payer: $("#expensePayer").value,
+    split: $("#expenseSplit").value === "split",
     amount,
     name,
     note: $("#expenseNote").value.trim(),
@@ -817,6 +1092,8 @@ function addExpense(event) {
   event.currentTarget.reset();
   $("#expenseDate").value = expense.date;
   $("#expenseCategory").value = expense.category;
+  $("#expensePayer").value = expense.payer;
+  $("#expenseSplit").value = expense.split ? "split" : "personal";
   $("#expenseName").focus();
   renderExpenses();
 }
@@ -830,26 +1107,91 @@ function renderExpenses() {
   const expenses = loadExpenses();
   const selectedDay = $("#expenseDayFilter").value || allExpenseDays;
   const selectedCategory = $("#expenseCategoryFilter").value || allExpenseCategories;
+  const selectedPayer = $("#expensePayerFilter").value || allExpensePayers;
   const activeExpenseDate = $("#expenseDate").value || getActiveDay()?.date || tripDays[0]?.date || "";
   const filtered = expenses.filter((expense) => {
     const dayMatch = selectedDay === allExpenseDays || expense.date === selectedDay;
     const categoryMatch = selectedCategory === allExpenseCategories || expense.category === selectedCategory;
-    return dayMatch && categoryMatch;
+    const payerMatch = selectedPayer === allExpensePayers || expense.payer === selectedPayer;
+    return dayMatch && categoryMatch && payerMatch;
   });
   const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const filteredTotal = filtered.reduce((sum, expense) => sum + expense.amount, 0);
   const activeDayTotal = expenses
     .filter((expense) => expense.date === activeExpenseDate)
     .reduce((sum, expense) => sum + expense.amount, 0);
+  const groupTotal = filtered.filter((expense) => expense.split).reduce((sum, expense) => sum + expense.amount, 0);
+  const personalTotal = filtered.filter((expense) => !expense.split).reduce((sum, expense) => sum + expense.amount, 0);
+  const publicAccountPaid = filtered
+    .filter((expense) => expense.payer === publicExpenseAccount)
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const settlementGroupTotal = filtered
+    .filter((expense) => expense.split && expense.payer !== publicExpenseAccount)
+    .reduce((sum, expense) => sum + expense.amount, 0);
+  const sharePerPerson = settlementGroupTotal / expenseMembers.length;
   const categoryTotals = expenseCategories.map((category) => [
     category,
-    expenses.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0)
+    filtered.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0)
   ]);
+  const payerTotals = expensePayers.map((payer) => [
+    payer,
+    filtered.filter((expense) => expense.payer === payer).reduce((sum, expense) => sum + expense.amount, 0)
+  ]);
+  const memberTotals = expenseMembers.map((member) => {
+    const paid = filtered.filter((expense) => expense.payer === member).reduce((sum, expense) => sum + expense.amount, 0);
+    const groupPaid = filtered
+      .filter((expense) => expense.payer === member && expense.split)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+    const personal = filtered
+      .filter((expense) => expense.payer === member && !expense.split)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+    const ownCost = personal + sharePerPerson;
+    const balance = paid - ownCost;
+    return { member, paid, groupPaid, personal, ownCost, balance };
+  });
+  const creditor = memberTotals.find((item) => item.balance > 0);
+  const debtor = memberTotals.find((item) => item.balance < 0);
+  const settlementText =
+    creditor && debtor
+      ? `${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
+      : "目前不用互補";
 
   $("#expenseSummary").innerHTML = `
-    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong><span class="meta">這支手機上的記帳</span></div>
+    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong><span class="meta">這支手機上的全部記帳</span></div>
     <div class="stat"><span>目前日期</span><strong>${formatYen(activeDayTotal)}</strong><span class="meta">${escapeHtml(activeExpenseDate || "未選日期")}</span></div>
     <div class="stat"><span>目前篩選</span><strong>${formatYen(filteredTotal)}</strong><span class="meta">${filtered.length} 筆</span></div>
+    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong><span class="meta">兩人結算每人 ${formatYen(sharePerPerson)}</span></div>
+    <div class="stat"><span>個人支出</span><strong>${formatYen(personalTotal)}</strong><span class="meta">不分帳項目</span></div>
+    <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong><span class="meta">不列入兩人互補</span></div>
+    <div class="stat"><span>結算</span><strong>${escapeHtml(settlementText)}</strong><span class="meta">依目前篩選計算</span></div>
+    <div class="expense-breakdown payer-breakdown" aria-label="付款人小計">
+      ${payerTotals
+        .map(
+          ([payer, amount]) => `
+            <span>
+              <b>${escapeHtml(payer)}</b>
+              ${formatYen(amount)}
+            </span>
+          `
+        )
+        .join("")}
+    </div>
+    <div class="expense-breakdown member-breakdown" aria-label="兩人付款與分攤">
+      ${memberTotals
+        .map(
+          ({ member, paid, groupPaid, personal, ownCost, balance }) => `
+            <span>
+              <b>${escapeHtml(member)}</b>
+              已付 ${formatYen(paid)}<br>
+              團體代付 ${formatYen(groupPaid)}<br>
+              個人 ${formatYen(personal)}<br>
+              應負擔 ${formatYen(ownCost)}<br>
+              ${balance >= 0 ? `應收 ${formatYen(balance)}` : `應付 ${formatYen(Math.abs(balance))}`}
+            </span>
+          `
+        )
+        .join("")}
+    </div>
     <div class="expense-breakdown" aria-label="分類小計">
       ${categoryTotals
         .map(
@@ -871,11 +1213,11 @@ function renderExpenses() {
             <article class="expense-item">
               <div>
                 <strong>${escapeHtml(expense.date)}</strong>
-                <div class="meta">${escapeHtml(expense.category)}</div>
+                <div class="meta">${escapeHtml(expense.category)} / ${escapeHtml(expense.payer)} 付</div>
               </div>
               <div>
                 <h3>${escapeHtml(expense.name)}</h3>
-                ${expense.note ? `<div class="meta">${escapeHtml(expense.note)}</div>` : ""}
+                <div class="meta">${expense.note ? `${escapeHtml(expense.note)}<br>` : ""}${expense.split ? `要分帳，每人約 ${formatYen(expense.amount / expenseMembers.length)}` : "不分帳，算付款人的個人支出"}</div>
               </div>
               <div class="expense-amount">${formatYen(expense.amount)}</div>
               <button class="text-button danger-action expense-delete" type="button" data-expense-id="${escapeAttr(expense.id)}">刪除</button>
@@ -888,6 +1230,100 @@ function renderExpenses() {
   $all(".expense-delete").forEach((button) => {
     button.addEventListener("click", () => deleteExpense(button.dataset.expenseId));
   });
+}
+
+function triggerDownload(filename, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return `"${safeText.replace(/"/g, '""')}"`;
+}
+
+function exportExpensesCsv() {
+  const rows = [
+    ["日期", "分類", "付款人", "是否分帳", "項目", "金額", "每人分攤", "備註", "建立時間"],
+    ...loadExpenses().map((expense) => [
+      expense.date,
+      expense.category,
+      expense.payer,
+      expense.split ? "要分帳" : "不分帳",
+      expense.name,
+      expense.amount,
+      expense.split ? Math.round(expense.amount / expenseMembers.length) : expense.amount,
+      expense.note,
+      expense.createdAt
+    ])
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\n")}`;
+  triggerDownload("okayama-expenses.csv", csv, "text/csv;charset=utf-8");
+}
+
+function buildLocalBackup() {
+  return {
+    app: "okayama-travel-app",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: {
+      itinerary: tripDays,
+      checklist: readJson(STORAGE_KEYS.checklist, {}),
+      memo: localStorage.getItem(STORAGE_KEYS.memo) || "",
+      expenses: loadExpenses()
+    }
+  };
+}
+
+function exportLocalBackup() {
+  const backup = buildLocalBackup();
+  triggerDownload("okayama-travel-backup.json", JSON.stringify(backup, null, 2), "application/json;charset=utf-8");
+}
+
+function restoreLocalBackup(backup) {
+  const data = backup?.data || backup;
+  if (!data || !Array.isArray(data.itinerary) || !Array.isArray(data.expenses)) {
+    throw new Error("invalid backup");
+  }
+
+  writeJson(STORAGE_KEYS.itinerary, data.itinerary);
+  writeJson(STORAGE_KEYS.checklist, data.checklist || {});
+  localStorage.setItem(STORAGE_KEYS.memo, String(data.memo || ""));
+  writeJson(STORAGE_KEYS.expenses, data.expenses);
+
+  tripDays = loadTripDays();
+  state.activeDay = getInitialActiveDayKey();
+  const memo = $("#tripMemo");
+  if (memo) memo.value = localStorage.getItem(STORAGE_KEYS.memo) || "";
+  renderDayNav();
+  renderDayDetail();
+  renderFilters();
+  renderPoints();
+  renderExpenseControls();
+  renderExpenses();
+  renderChecklist();
+}
+
+async function importLocalBackup(file) {
+  if (!file) return;
+  try {
+    const backup = JSON.parse(await file.text());
+    if (!confirm("匯入備份會覆蓋這支手機目前的行程修改、記帳、清單與備忘錄，要繼續嗎？")) return;
+    restoreLocalBackup(backup);
+    alert("備份已匯入。");
+  } catch {
+    alert("無法匯入這個備份檔，請確認是 okayama-travel-backup.json。");
+  } finally {
+    $("#backupFileInput").value = "";
+  }
 }
 
 function renderChecklist() {
@@ -961,6 +1397,7 @@ async function clearLocalData() {
   localStorage.removeItem(STORAGE_KEYS.checklist);
   localStorage.removeItem(STORAGE_KEYS.memo);
   localStorage.removeItem(STORAGE_KEYS.expenses);
+  localStorage.removeItem(STORAGE_KEYS.weather);
   if ("caches" in window) {
     const cacheKeys = await caches.keys();
     await Promise.all(cacheKeys.filter((key) => key.startsWith("okayama-trip")).map((key) => caches.delete(key)));
@@ -988,6 +1425,10 @@ function init() {
     renderChecklist();
   });
   $("#clearLocalData").addEventListener("click", clearLocalData);
+  $("#exportExpensesCsv").addEventListener("click", exportExpensesCsv);
+  $("#exportBackup").addEventListener("click", exportLocalBackup);
+  $("#importBackup").addEventListener("click", () => $("#backupFileInput").click());
+  $("#backupFileInput").addEventListener("change", (event) => importLocalBackup(event.target.files?.[0]));
 
   renderDayNav();
   syncEditButton();

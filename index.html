@@ -12,7 +12,7 @@
       content="2026/8/13-8/19 岡山、宮島、姬路、倉敷、廣島旅行助手"
     />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" href="./icons/okayama-icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./icons/okayama-icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="./icons/okayama-icon-192.png" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -118,6 +118,14 @@
               <input id="expenseAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="1200" required />
             </label>
             <label>
+              付款人
+              <select id="expensePayer" required></select>
+            </label>
+            <label>
+              分帳
+              <select id="expenseSplit" required></select>
+            </label>
+            <label>
               項目
               <input id="expenseName" type="text" maxlength="40" placeholder="午餐、車票、伴手禮" required />
             </label>
@@ -131,6 +139,7 @@
           <div class="expense-summary" id="expenseSummary"></div>
 
           <div class="toolbar expense-filters">
+            <button class="text-button" id="exportExpensesCsv" type="button">匯出 CSV</button>
             <label>
               日期
               <select id="expenseDayFilter"></select>
@@ -139,6 +148,10 @@
               分類
               <select id="expenseCategoryFilter"></select>
             </label>
+            <label>
+              付款人
+              <select id="expensePayerFilter"></select>
+            </label>
           </div>
 
           <div class="expense-list" id="expenseList"></div>
@@ -146,6 +159,9 @@
 
         <section class="view" id="checklist" aria-label="行前清單">
           <div class="toolbar checklist-tools">
+            <button class="text-button" id="exportBackup" type="button">匯出備份</button>
+            <button class="text-button" id="importBackup" type="button">匯入備份</button>
+            <input class="visually-hidden" id="backupFileInput" type="file" accept="application/json,.json" />
             <button class="text-button" id="resetChecklist" type="button">重設清單</button>
             <button class="text-button danger-action" id="clearLocalData" type="button">清除本機資料</button>
           </div>
