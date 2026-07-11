@@ -104,6 +104,92 @@
         </section>
 
         <section class="view" id="expenses" aria-label="旅行記帳">
+          <section class="exchange-panel" aria-labelledby="exchangeRateTitle">
+            <div class="exchange-heading">
+              <div>
+                <p class="eyebrow" id="exchangeRateTitle">JPY → TWD</p>
+                <div class="exchange-rate-line">
+                  <strong id="exchangeRateDisplay">取得匯率中</strong>
+                  <span class="exchange-source" id="exchangeRateStatus" role="status"></span>
+                </div>
+              </div>
+              <button class="icon-button" id="refreshExchangeRate" type="button" aria-label="更新匯率" title="更新匯率">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5" />
+                  <path d="M4 13a8.1 8.1 0 0 0 15.5 2M20 20v-5h-5" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="exchange-settings">
+              <label>
+                匯率來源
+                <select id="exchangeRateMode">
+                  <option value="auto">每日參考匯率</option>
+                  <option value="manual">自訂匯率</option>
+                </select>
+              </label>
+              <label id="manualExchangeRateField" hidden>
+                ¥1 等於多少台幣
+                <input id="manualExchangeRate" type="number" inputmode="decimal" min="0.0001" step="0.0001" placeholder="0.2000" />
+              </label>
+            </div>
+
+            <details class="exchange-calculator">
+              <summary>快速試算</summary>
+              <div class="calculator-row">
+                <label>
+                  日圓 JPY
+                  <input id="exchangeCalculatorYen" type="number" inputmode="numeric" min="0" step="1" value="1000" />
+                </label>
+                <span class="calculator-equals" aria-hidden="true">=</span>
+                <output id="exchangeCalculatorTwd" for="exchangeCalculatorYen">等待匯率</output>
+              </div>
+            </details>
+          </section>
+
+          <section class="public-fund-panel" aria-labelledby="publicFundTitle">
+            <div class="public-fund-heading">
+              <div>
+                <p class="eyebrow">共同錢包</p>
+                <h2 id="publicFundTitle">公帳</h2>
+              </div>
+              <p class="public-fund-status" id="publicFundStatus" role="status"></p>
+            </div>
+
+            <div class="public-fund-summary" id="publicFundSummary"></div>
+
+            <div class="public-fund-tools">
+              <details class="public-fund-topup">
+                <summary>補入公帳</summary>
+                <form class="public-fund-form" id="publicFundForm">
+                  <label>
+                    日期
+                    <select id="publicFundDate" required></select>
+                  </label>
+                  <label>
+                    補入人
+                    <select id="publicFundMember" required></select>
+                  </label>
+                  <label>
+                    金額 JPY
+                    <input id="publicFundAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="10000" required />
+                  </label>
+                  <label class="public-fund-note-field">
+                    備註
+                    <input id="publicFundNote" type="text" maxlength="80" placeholder="現金、Suica 或旅費預存" />
+                  </label>
+                  <button class="text-button primary-action" type="submit">補入</button>
+                </form>
+              </details>
+
+              <details class="public-fund-ledger-panel">
+                <summary id="publicFundLedgerSummary">公帳明細</summary>
+                <div class="public-fund-ledger" id="publicFundLedger"></div>
+              </details>
+            </div>
+          </section>
+
           <form class="expense-form" id="expenseForm">
             <label>
               日期
@@ -124,6 +210,10 @@
             <label>
               分帳
               <select id="expenseSplit" required></select>
+            </label>
+            <label class="expense-owner-field" id="expenseOwnerField" hidden>
+              算誰的
+              <select id="expenseOwner" disabled></select>
             </label>
             <label>
               項目

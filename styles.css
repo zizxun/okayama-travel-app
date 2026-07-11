@@ -790,7 +790,9 @@ p {
 }
 
 select,
-.expense-form input {
+.expense-form input,
+.exchange-panel input,
+.public-fund-panel input {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -799,7 +801,9 @@ select,
   padding: 0 12px;
 }
 
-.expense-form input {
+.expense-form input,
+.exchange-panel input,
+.public-fund-panel input {
   font: inherit;
 }
 
@@ -887,12 +891,258 @@ select,
   margin-bottom: 12px;
 }
 
+.exchange-panel {
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.exchange-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.exchange-rate-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: baseline;
+}
+
+.exchange-rate-line strong {
+  font-size: 1.28rem;
+}
+
+.exchange-source,
+.twd-estimate,
+.breakdown-twd {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.exchange-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.exchange-settings [hidden] {
+  display: none;
+}
+
+.exchange-settings label,
+.calculator-row label {
+  display: grid;
+  gap: 5px;
+  min-width: min(220px, 100%);
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.exchange-calculator {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.exchange-calculator summary {
+  color: var(--teal);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+#refreshExchangeRate:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.calculator-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 240px) auto minmax(150px, 1fr);
+  gap: 12px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.calculator-equals {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-weight: 900;
+}
+
+.calculator-row output {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  color: var(--vermilion);
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.public-fund-panel {
+  margin-bottom: 14px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  padding: 16px 0;
+}
+
+.public-fund-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  padding: 0 14px;
+}
+
+.public-fund-heading h2 {
+  margin: 2px 0 0;
+  font-size: 1.28rem;
+}
+
+.public-fund-status {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.public-fund-status.warning,
+.public-fund-metric.negative strong {
+  color: var(--vermilion);
+}
+
+.public-fund-status.ready,
+.public-fund-metric.positive strong {
+  color: var(--teal);
+}
+
+.public-fund-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.public-fund-metric {
+  min-width: 0;
+  padding: 12px 14px;
+}
+
+.public-fund-metric + .public-fund-metric {
+  border-left: 1px solid var(--line);
+}
+
+.public-fund-metric > span:first-child,
+.public-fund-metric strong,
+.public-fund-metric .twd-estimate {
+  display: block;
+}
+
+.public-fund-metric > span:first-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.public-fund-metric strong {
+  margin-top: 2px;
+  font-size: 1.25rem;
+}
+
+.public-fund-tools {
+  padding: 0 14px;
+}
+
+.public-fund-tools details {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.public-fund-tools summary {
+  width: fit-content;
+  color: var(--teal);
+  cursor: pointer;
+  font-weight: 900;
+}
+
+.public-fund-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) minmax(200px, 2fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.public-fund-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.public-fund-ledger {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.public-fund-entry {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding: 10px 0 2px;
+}
+
+.public-fund-entry:first-child {
+  border-top: 0;
+}
+
+.public-fund-entry-amount {
+  font-size: 1rem;
+  font-weight: 900;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.public-fund-entry-amount.deposit {
+  color: var(--teal);
+}
+
+.public-fund-entry-amount.expense {
+  color: var(--vermilion);
+}
+
+.public-fund-entry-amount span,
+.public-fund-entry-amount .twd-estimate {
+  display: block;
+}
+
 .expense-form label {
   display: grid;
   gap: 5px;
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.expense-form [hidden] {
+  display: none;
 }
 
 .expense-note-field {
@@ -957,6 +1207,12 @@ select,
   font-size: 1.08rem;
   font-weight: 900;
   white-space: nowrap;
+}
+
+.expense-amount span,
+.expense-amount .twd-estimate,
+.breakdown-twd {
+  display: block;
 }
 
 .empty-state {
@@ -1079,8 +1335,44 @@ select,
   .expense-form,
   .expense-summary,
   .expense-breakdown,
-  .expense-item {
+  .expense-item,
+  .calculator-row,
+  .public-fund-form,
+  .public-fund-entry {
     grid-template-columns: 1fr;
+  }
+
+  .public-fund-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .public-fund-status {
+    text-align: left;
+  }
+
+  .public-fund-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .public-fund-metric + .public-fund-metric {
+    border-left: 0;
+  }
+
+  .public-fund-metric:nth-child(even) {
+    border-left: 1px solid var(--line);
+  }
+
+  .public-fund-metric:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .public-fund-entry-amount {
+    text-align: left;
+  }
+
+  .calculator-equals {
+    display: none;
   }
 
   .editable-slot,
@@ -1122,6 +1414,7 @@ select,
   .summary-card,
   .pass-map-card,
   .day-detail,
+  .public-fund-panel,
   .point-item,
   .budget-item,
   .expense-item,

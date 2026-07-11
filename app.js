@@ -285,10 +285,14 @@ const STORAGE_KEYS = {
   checklist: "okayamaChecklist",
   memo: "okayamaTripMemo",
   expenses: "okayamaExpensesV1",
-  weather: "okayamaWeatherCacheV1"
+  weather: "okayamaWeatherCacheV1",
+  exchangeRate: "okayamaExchangeRateV1",
+  publicFund: "okayamaPublicFundV1"
 };
 
 const TRIP_YEAR = 2026;
+const EXCHANGE_RATE_API = "https://api.frankfurter.dev/v2/rate/JPY/TWD";
+const EXCHANGE_RATE_MAX_AGE = 24 * 60 * 60 * 1000;
 const expenseCategories = ["交通", "門票", "餐飲", "購物", "住宿", "其他"];
 const expenseMembers = ["XUN", "UT"];
 const publicExpenseAccount = "公帳";
@@ -334,6 +338,8 @@ const weatherCodeLabels = {
 
 const defaultDays = clone(days);
 let tripDays = loadTripDays();
+let exchangeRateSettings = loadExchangeRateSettings();
+let exchangeRateRequestStatus = "idle";
 
 const state = {
   activeDay: getInitialActiveDayKey(),
@@ -388,22 +394,40 @@ function normalizeExpensePayer(payer) {
   return expensePayers.includes(normalizedPayer) ? normalizedPayer : expenseMembers[0];
 }
 
+function normalizeExpenseMember(member) {
+  const normalized = normalizeExpensePayer(member);
+  return expenseMembers.includes(normalized) ? normalized : expenseMembers[0];
+}
+
 function loadExpenses() {
   const saved = readJson(STORAGE_KEYS.expenses, []);
   if (!Array.isArray(saved)) return [];
 
   return saved
-    .map((expense) => ({
-      id: String(expense.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
-      date: String(expense.date || tripDays[0]?.date || ""),
-      category: expenseCategories.includes(expense.category) ? expense.category : "其他",
-      payer: normalizeExpensePayer(expense.payer),
-      split: typeof expense.split === "boolean" ? expense.split : Number(expense.people || 1) > 1,
-      amount: Number(expense.amount) || 0,
-      name: String(expense.name || "").trim(),
-      note: String(expense.note || "").trim(),
-      createdAt: String(expense.createdAt || new Date().toISOString())
-    }))
+    .map((expense) => {
+      const payer = normalizeExpensePayer(expense.payer);
+      const split = typeof expense.split === "boolean" ? expense.split : Number(expense.people || 1) > 1;
+      const hasSavedOwner = expenseMembers.includes(expense.owner) || ["我", "同行者"].includes(expense.owner);
+      const owner = split
+        ? ""
+        : hasSavedOwner
+          ? normalizeExpenseMember(expense.owner)
+          : payer === publicExpenseAccount
+            ? expenseMembers[0]
+            : payer;
+      return {
+        id: String(expense.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+        date: String(expense.date || tripDays[0]?.date || ""),
+        category: expenseCategories.includes(expense.category) ? expense.category : "其他",
+        payer,
+        split,
+        owner,
+        amount: Number(expense.amount) || 0,
+        name: String(expense.name || "").trim(),
+        note: String(expense.note || "").trim(),
+        createdAt: String(expense.createdAt || new Date().toISOString())
+      };
+    })
     .filter((expense) => expense.amount > 0 && expense.name);
 }
 
@@ -411,8 +435,144 @@ function saveExpenses(expenses) {
   writeJson(STORAGE_KEYS.expenses, expenses);
 }
 
+function loadPublicFundDeposits() {
+  const saved = readJson(STORAGE_KEYS.publicFund, []);
+  if (!Array.isArray(saved)) return [];
+
+  return saved
+    .map((deposit) => ({
+      id: String(deposit.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+      date: String(deposit.date || tripDays[0]?.date || ""),
+      member: normalizeExpenseMember(deposit.member),
+      amount: Number(deposit.amount) || 0,
+      note: String(deposit.note || "").trim(),
+      createdAt: String(deposit.createdAt || new Date().toISOString())
+    }))
+    .filter((deposit) => deposit.amount > 0);
+}
+
+function savePublicFundDeposits(deposits) {
+  writeJson(STORAGE_KEYS.publicFund, deposits);
+}
+
+function loadExchangeRateSettings() {
+  const saved = readJson(STORAGE_KEYS.exchangeRate, {});
+  const autoRate = Number(saved?.autoRate);
+  const manualRate = Number(saved?.manualRate);
+  return {
+    mode: saved?.mode === "manual" ? "manual" : "auto",
+    autoRate: autoRate > 0 ? autoRate : null,
+    manualRate: manualRate > 0 ? manualRate : null,
+    rateDate: String(saved?.rateDate || ""),
+    fetchedAt: Number(saved?.fetchedAt) || 0
+  };
+}
+
+function saveExchangeRateSettings() {
+  writeJson(STORAGE_KEYS.exchangeRate, exchangeRateSettings);
+}
+
+function getEffectiveExchangeRate() {
+  if (exchangeRateSettings.mode === "manual" && exchangeRateSettings.manualRate) {
+    return exchangeRateSettings.manualRate;
+  }
+  return exchangeRateSettings.autoRate;
+}
+
 function formatYen(amount) {
-  return `¥${Math.round(Number(amount || 0)).toLocaleString("ja-JP")}`;
+  const rounded = Math.round(Number(amount || 0));
+  const sign = rounded < 0 ? "-" : "";
+  return `${sign}¥${Math.abs(rounded).toLocaleString("ja-JP")}`;
+}
+
+function formatTwd(amount) {
+  const rounded = Math.round(Number(amount || 0));
+  const sign = rounded < 0 ? "-" : "";
+  return `${sign}NT$${Math.abs(rounded).toLocaleString("zh-TW")}`;
+}
+
+function convertYenToTwd(amount) {
+  const rate = getEffectiveExchangeRate();
+  return rate ? Number(amount || 0) * rate : null;
+}
+
+function renderTwdEstimate(amount, className = "twd-estimate") {
+  const converted = convertYenToTwd(amount);
+  return converted === null ? "" : `<span class="${className}">約 ${formatTwd(converted)}</span>`;
+}
+
+function sumAmounts(items) {
+  return items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}
+
+function calculatePublicFund(expenses = loadExpenses(), deposits = loadPublicFundDeposits()) {
+  const publicExpenses = expenses.filter((expense) => expense.payer === publicExpenseAccount);
+  const sharedExpenseTotal = sumAmounts(publicExpenses.filter((expense) => expense.split));
+  const contributions = Object.fromEntries(
+    expenseMembers.map((member) => [member, sumAmounts(deposits.filter((deposit) => deposit.member === member))])
+  );
+  const personalCosts = Object.fromEntries(
+    expenseMembers.map((member) => [
+      member,
+      sumAmounts(publicExpenses.filter((expense) => !expense.split && expense.owner === member))
+    ])
+  );
+  const liabilities = Object.fromEntries(
+    expenseMembers.map((member) => [member, personalCosts[member] + sharedExpenseTotal / expenseMembers.length])
+  );
+  const totalDeposits = sumAmounts(deposits);
+  const totalExpenses = sumAmounts(publicExpenses);
+  const balance = totalDeposits - totalExpenses;
+
+  return {
+    deposits,
+    publicExpenses,
+    contributions,
+    personalCosts,
+    liabilities,
+    totalDeposits,
+    totalExpenses,
+    sharedExpenseTotal,
+    balance
+  };
+}
+
+function calculatePublicFundClosure(fund = calculatePublicFund()) {
+  const needsTopUp = fund.balance < 0;
+  const refundShare = needsTopUp ? 0 : fund.balance / expenseMembers.length;
+  const members = expenseMembers.map((member) => ({
+    member,
+    action: fund.liabilities[member] - fund.contributions[member],
+    balance: needsTopUp ? null : fund.contributions[member] - fund.liabilities[member] - refundShare
+  }));
+  if (needsTopUp) return { needsTopUp, refundShare, members, settlementText: "" };
+
+  const creditor = members.find((item) => Number(item.balance) > 0.5);
+  const debtor = members.find((item) => Number(item.balance) < -0.5);
+  const settlementText =
+    creditor && debtor
+      ? `公帳差額：${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
+      : "公帳投入已平衡";
+  return { needsTopUp, refundShare, members, settlementText };
+}
+
+function calculateTripSettlement(expenses = loadExpenses()) {
+  const directSharedExpenses = expenses.filter(
+    (expense) => expense.split && expenseMembers.includes(expense.payer)
+  );
+  const total = sumAmounts(directSharedExpenses);
+  const sharePerPerson = total / expenseMembers.length;
+  const members = expenseMembers.map((member) => {
+    const paid = sumAmounts(directSharedExpenses.filter((expense) => expense.payer === member));
+    return { member, paid, share: sharePerPerson, balance: paid - sharePerPerson };
+  });
+  const creditor = members.find((item) => item.balance > 0.5);
+  const debtor = members.find((item) => item.balance < -0.5);
+  const settlementText =
+    creditor && debtor
+      ? `${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
+      : "目前不用互補";
+  return { total, sharePerPerson, members, settlementText };
 }
 
 function getTripIsoDate(day) {
@@ -1041,6 +1201,9 @@ function renderExpenseControls() {
   const payerOptions = expensePayers
     .map((payer) => `<option value="${escapeAttr(payer)}">${escapeHtml(payer)}</option>`)
     .join("");
+  const memberOptions = expenseMembers
+    .map((member) => `<option value="${escapeAttr(member)}">${escapeHtml(member)}</option>`)
+    .join("");
   const splitSelectOptions = splitOptions
     .map(([value, label]) => `<option value="${escapeAttr(value)}">${escapeHtml(label)}</option>`)
     .join("");
@@ -1052,6 +1215,12 @@ function renderExpenseControls() {
   $("#expensePayer").value = expenseMembers[0];
   $("#expenseSplit").innerHTML = splitSelectOptions;
   $("#expenseSplit").value = "split";
+  $("#expenseOwner").innerHTML = memberOptions;
+  $("#expenseOwner").value = expenseMembers[0];
+  $("#publicFundDate").innerHTML = dateOptions;
+  $("#publicFundDate").value = getActiveDay()?.date || tripDays[0]?.date || "";
+  $("#publicFundMember").innerHTML = memberOptions;
+  $("#publicFundMember").value = expenseMembers[0];
   $("#expenseDayFilter").innerHTML = `<option value="${escapeAttr(allExpenseDays)}">${escapeHtml(allExpenseDays)}</option>${dateOptions}`;
   $("#expenseCategoryFilter").innerHTML = `<option value="${escapeAttr(allExpenseCategories)}">${escapeHtml(allExpenseCategories)}</option>${categoryOptions}`;
   $("#expensePayerFilter").innerHTML = `<option value="${escapeAttr(allExpensePayers)}">${escapeHtml(allExpensePayers)}</option>${payerOptions}`;
@@ -1061,9 +1230,247 @@ function renderExpenseControls() {
     $("#expenseDayFilter").addEventListener("change", renderExpenses);
     $("#expenseCategoryFilter").addEventListener("change", renderExpenses);
     $("#expensePayerFilter").addEventListener("change", renderExpenses);
+    $("#expensePayer").addEventListener("change", updateExpenseOwnerVisibility);
+    $("#expenseSplit").addEventListener("change", updateExpenseOwnerVisibility);
     $("#expenseForm").addEventListener("submit", addExpense);
+    $("#publicFundForm").addEventListener("submit", addPublicFundDeposit);
     $("#expenseForm").dataset.bound = "true";
   }
+  updateExpenseOwnerVisibility();
+}
+
+function updateExpenseOwnerVisibility() {
+  const ownerField = $("#expenseOwnerField");
+  const ownerSelect = $("#expenseOwner");
+  const needsOwner =
+    $("#expensePayer").value === publicExpenseAccount && $("#expenseSplit").value === "personal";
+  ownerField.hidden = !needsOwner;
+  ownerSelect.disabled = !needsOwner;
+  ownerSelect.required = needsOwner;
+  if (needsOwner && !expenseMembers.includes(ownerSelect.value)) ownerSelect.value = expenseMembers[0];
+}
+
+function addPublicFundDeposit(event) {
+  event.preventDefault();
+  const amount = Math.round(Number($("#publicFundAmount").value));
+  if (!amount || amount < 1) return;
+
+  const deposit = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    date: $("#publicFundDate").value,
+    member: normalizeExpenseMember($("#publicFundMember").value),
+    amount,
+    note: $("#publicFundNote").value.trim(),
+    createdAt: new Date().toISOString()
+  };
+  const deposits = loadPublicFundDeposits();
+  deposits.unshift(deposit);
+  savePublicFundDeposits(deposits);
+
+  event.currentTarget.reset();
+  $("#publicFundDate").value = deposit.date;
+  $("#publicFundMember").value = deposit.member;
+  $("#publicFundAmount").focus();
+  renderPublicFund();
+  renderExpenses();
+}
+
+function deletePublicFundDeposit(id) {
+  savePublicFundDeposits(loadPublicFundDeposits().filter((deposit) => deposit.id !== id));
+  renderPublicFund();
+  renderExpenses();
+}
+
+function renderPublicFund() {
+  const fund = calculatePublicFund();
+  const closure = calculatePublicFundClosure(fund);
+  const balanceClass = fund.balance < 0 ? "negative" : fund.balance > 0 ? "positive" : "";
+  $("#publicFundSummary").innerHTML = `
+    <div class="public-fund-metric ${balanceClass}">
+      <span>公帳餘額</span>
+      <strong>${formatYen(fund.balance)}</strong>
+      ${renderTwdEstimate(fund.balance)}
+    </div>
+    ${expenseMembers
+      .map(
+        (member) => `
+          <div class="public-fund-metric">
+            <span>${escapeHtml(member)} 投入</span>
+            <strong>${formatYen(fund.contributions[member])}</strong>
+            ${renderTwdEstimate(fund.contributions[member])}
+          </div>
+        `
+      )
+      .join("")}
+    <div class="public-fund-metric">
+      <span>公帳支出</span>
+      <strong>${formatYen(fund.totalExpenses)}</strong>
+      ${renderTwdEstimate(fund.totalExpenses)}
+    </div>
+  `;
+
+  if (fund.balance < 0) {
+    const actions = closure.members
+      .map(({ member, action }) => {
+        if (action > 0.5) return `${member} 應補 ${formatYen(action)}`;
+        if (action < -0.5) return `${member} 多投入 ${formatYen(Math.abs(action))}`;
+        return `${member} 已平衡`;
+      })
+      .join("，");
+    $("#publicFundStatus").className = "public-fund-status warning";
+    $("#publicFundStatus").textContent = `公帳不足 ${formatYen(Math.abs(fund.balance))} · ${actions}`;
+  } else if (fund.balance > 0) {
+    $("#publicFundStatus").className = "public-fund-status ready";
+    $("#publicFundStatus").textContent = `餘額每人退 ${formatYen(closure.refundShare)} · ${closure.settlementText}`;
+  } else {
+    $("#publicFundStatus").className = "public-fund-status";
+    $("#publicFundStatus").textContent = fund.totalDeposits
+      ? `公帳餘額已用完 · ${closure.settlementText}`
+      : "尚未補入公帳";
+  }
+
+  const ledger = [
+    ...fund.deposits.map((deposit) => ({ ...deposit, type: "deposit" })),
+    ...fund.publicExpenses.map((expense) => ({ ...expense, type: "expense" }))
+  ].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  $("#publicFundLedgerSummary").textContent = `公帳明細（${ledger.length}）`;
+  $("#publicFundLedger").innerHTML = ledger.length
+    ? ledger
+        .map((entry) => {
+          const isDeposit = entry.type === "deposit";
+          const detail = isDeposit
+            ? `${entry.member} 補入`
+            : `${entry.category} · ${entry.split ? "共同分帳" : `${entry.owner} 個人`}`;
+          const title = isDeposit ? entry.note || "補入公帳" : entry.name;
+          return `
+            <article class="public-fund-entry ${entry.type}">
+              <div>
+                <strong>${escapeHtml(entry.date)}</strong>
+                <div class="meta">${escapeHtml(detail)}</div>
+              </div>
+              <div>
+                <h3>${escapeHtml(title)}</h3>
+                ${!isDeposit && entry.note ? `<div class="meta">${escapeHtml(entry.note)}</div>` : ""}
+              </div>
+              <div class="public-fund-entry-amount ${entry.type}">
+                <span>${isDeposit ? "+" : "-"}${formatYen(entry.amount)}</span>
+                ${renderTwdEstimate(entry.amount)}
+              </div>
+              ${
+                isDeposit
+                  ? `<button class="text-button danger-action public-fund-delete" type="button" data-public-fund-id="${escapeAttr(entry.id)}">刪除補入</button>`
+                  : ""
+              }
+            </article>
+          `;
+        })
+        .join("")
+    : `<p class="empty-state">尚無公帳補入或支出。</p>`;
+
+  $all(".public-fund-delete").forEach((button) => {
+    button.addEventListener("click", () => deletePublicFundDeposit(button.dataset.publicFundId));
+  });
+}
+
+function renderExchangeCalculator() {
+  const output = $("#exchangeCalculatorTwd");
+  if (!output) return;
+  const amount = Math.max(0, Number($("#exchangeCalculatorYen")?.value) || 0);
+  const converted = convertYenToTwd(amount);
+  output.value = converted === null ? "等待匯率" : `約 ${formatTwd(converted)}`;
+}
+
+function renderExchangeRatePanel() {
+  const display = $("#exchangeRateDisplay");
+  if (!display) return;
+
+  const rate = getEffectiveExchangeRate();
+  const isManual = exchangeRateSettings.mode === "manual";
+  const modeSelect = $("#exchangeRateMode");
+  const manualField = $("#manualExchangeRateField");
+  const manualInput = $("#manualExchangeRate");
+  const refreshButton = $("#refreshExchangeRate");
+
+  modeSelect.value = exchangeRateSettings.mode;
+  manualField.hidden = !isManual;
+  if (document.activeElement !== manualInput) {
+    manualInput.value = exchangeRateSettings.manualRate || exchangeRateSettings.autoRate || "";
+  }
+  refreshButton.disabled = exchangeRateRequestStatus === "loading";
+  display.textContent = rate ? `¥1 = NT$${rate.toFixed(4)}` : "尚未取得匯率";
+
+  let statusText = "連線後會自動取得每日參考匯率";
+  if (isManual && rate) {
+    statusText = "使用這支手機的自訂匯率";
+  } else if (exchangeRateRequestStatus === "loading") {
+    statusText = exchangeRateSettings.autoRate ? "正在檢查最新匯率" : "正在取得每日參考匯率";
+  } else if (exchangeRateRequestStatus === "error") {
+    statusText = exchangeRateSettings.autoRate ? "目前離線，沿用上次匯率" : "目前無法取得匯率";
+  } else if (exchangeRateSettings.autoRate) {
+    statusText = `參考日 ${exchangeRateSettings.rateDate || "未知"} · Frankfurter`;
+  }
+  $("#exchangeRateStatus").textContent = statusText;
+  renderExchangeCalculator();
+}
+
+async function fetchExchangeRate(force = false) {
+  const cacheIsFresh =
+    exchangeRateSettings.autoRate && Date.now() - exchangeRateSettings.fetchedAt < EXCHANGE_RATE_MAX_AGE;
+  if (!force && cacheIsFresh) {
+    renderExchangeRatePanel();
+    return;
+  }
+
+  exchangeRateRequestStatus = "loading";
+  renderExchangeRatePanel();
+  try {
+    const response = await fetch(EXCHANGE_RATE_API, { cache: "no-store" });
+    if (!response.ok) throw new Error(`exchange rate ${response.status}`);
+    const data = await response.json();
+    const rate = Number(data.rate);
+    if (!Number.isFinite(rate) || rate <= 0) throw new Error("invalid exchange rate");
+
+    exchangeRateSettings.autoRate = rate;
+    exchangeRateSettings.rateDate = String(data.date || "");
+    exchangeRateSettings.fetchedAt = Date.now();
+    saveExchangeRateSettings();
+    exchangeRateRequestStatus = "success";
+  } catch {
+    exchangeRateRequestStatus = "error";
+  }
+  renderExchangeRatePanel();
+  renderExpenses();
+  renderPublicFund();
+}
+
+function initExchangeRate() {
+  $("#exchangeRateMode").addEventListener("change", (event) => {
+    exchangeRateSettings.mode = event.target.value === "manual" ? "manual" : "auto";
+    if (exchangeRateSettings.mode === "manual" && !exchangeRateSettings.manualRate) {
+      exchangeRateSettings.manualRate = exchangeRateSettings.autoRate || 0.2;
+    }
+    saveExchangeRateSettings();
+    renderExchangeRatePanel();
+    renderExpenses();
+    renderPublicFund();
+    if (exchangeRateSettings.mode === "auto") fetchExchangeRate();
+  });
+  $("#manualExchangeRate").addEventListener("change", (event) => {
+    const rate = Number(event.target.value);
+    if (!Number.isFinite(rate) || rate <= 0) {
+      event.target.value = exchangeRateSettings.manualRate || exchangeRateSettings.autoRate || "";
+      return;
+    }
+    exchangeRateSettings.manualRate = rate;
+    saveExchangeRateSettings();
+    renderExchangeRatePanel();
+    renderExpenses();
+    renderPublicFund();
+  });
+  $("#exchangeCalculatorYen").addEventListener("input", renderExchangeCalculator);
+  $("#refreshExchangeRate").addEventListener("click", () => fetchExchangeRate(true));
+  renderExchangeRatePanel();
+  fetchExchangeRate();
 }
 
 function addExpense(event) {
@@ -1072,13 +1479,16 @@ function addExpense(event) {
   const amount = Math.round(Number($("#expenseAmount").value));
   const name = $("#expenseName").value.trim();
   if (!amount || amount < 1 || !name) return;
+  const payer = $("#expensePayer").value;
+  const split = $("#expenseSplit").value === "split";
 
   const expense = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     date: $("#expenseDate").value,
     category: $("#expenseCategory").value,
-    payer: $("#expensePayer").value,
-    split: $("#expenseSplit").value === "split",
+    payer,
+    split,
+    owner: split ? "" : payer === publicExpenseAccount ? normalizeExpenseMember($("#expenseOwner").value) : payer,
     amount,
     name,
     note: $("#expenseNote").value.trim(),
@@ -1094,13 +1504,17 @@ function addExpense(event) {
   $("#expenseCategory").value = expense.category;
   $("#expensePayer").value = expense.payer;
   $("#expenseSplit").value = expense.split ? "split" : "personal";
+  $("#expenseOwner").value = expense.owner || expenseMembers[0];
+  updateExpenseOwnerVisibility();
   $("#expenseName").focus();
   renderExpenses();
+  renderPublicFund();
 }
 
 function deleteExpense(id) {
   saveExpenses(loadExpenses().filter((expense) => expense.id !== id));
   renderExpenses();
+  renderPublicFund();
 }
 
 function renderExpenses() {
@@ -1125,10 +1539,7 @@ function renderExpenses() {
   const publicAccountPaid = filtered
     .filter((expense) => expense.payer === publicExpenseAccount)
     .reduce((sum, expense) => sum + expense.amount, 0);
-  const settlementGroupTotal = filtered
-    .filter((expense) => expense.split && expense.payer !== publicExpenseAccount)
-    .reduce((sum, expense) => sum + expense.amount, 0);
-  const sharePerPerson = settlementGroupTotal / expenseMembers.length;
+  const sharePerPerson = groupTotal / expenseMembers.length;
   const categoryTotals = expenseCategories.map((category) => [
     category,
     filtered.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0)
@@ -1137,33 +1548,16 @@ function renderExpenses() {
     payer,
     filtered.filter((expense) => expense.payer === payer).reduce((sum, expense) => sum + expense.amount, 0)
   ]);
-  const memberTotals = expenseMembers.map((member) => {
-    const paid = filtered.filter((expense) => expense.payer === member).reduce((sum, expense) => sum + expense.amount, 0);
-    const groupPaid = filtered
-      .filter((expense) => expense.payer === member && expense.split)
-      .reduce((sum, expense) => sum + expense.amount, 0);
-    const personal = filtered
-      .filter((expense) => expense.payer === member && !expense.split)
-      .reduce((sum, expense) => sum + expense.amount, 0);
-    const ownCost = personal + sharePerPerson;
-    const balance = paid - ownCost;
-    return { member, paid, groupPaid, personal, ownCost, balance };
-  });
-  const creditor = memberTotals.find((item) => item.balance > 0);
-  const debtor = memberTotals.find((item) => item.balance < 0);
-  const settlementText =
-    creditor && debtor
-      ? `${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
-      : "目前不用互補";
+  const settlement = calculateTripSettlement(expenses);
 
   $("#expenseSummary").innerHTML = `
-    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong><span class="meta">這支手機上的全部記帳</span></div>
-    <div class="stat"><span>目前日期</span><strong>${formatYen(activeDayTotal)}</strong><span class="meta">${escapeHtml(activeExpenseDate || "未選日期")}</span></div>
-    <div class="stat"><span>目前篩選</span><strong>${formatYen(filteredTotal)}</strong><span class="meta">${filtered.length} 筆</span></div>
-    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong><span class="meta">兩人結算每人 ${formatYen(sharePerPerson)}</span></div>
-    <div class="stat"><span>個人支出</span><strong>${formatYen(personalTotal)}</strong><span class="meta">不分帳項目</span></div>
-    <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong><span class="meta">不列入兩人互補</span></div>
-    <div class="stat"><span>結算</span><strong>${escapeHtml(settlementText)}</strong><span class="meta">依目前篩選計算</span></div>
+    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong>${renderTwdEstimate(total)}<span class="meta">這支手機上的全部記帳</span></div>
+    <div class="stat"><span>目前日期</span><strong>${formatYen(activeDayTotal)}</strong>${renderTwdEstimate(activeDayTotal)}<span class="meta">${escapeHtml(activeExpenseDate || "未選日期")}</span></div>
+    <div class="stat"><span>目前篩選</span><strong>${formatYen(filteredTotal)}</strong>${renderTwdEstimate(filteredTotal)}<span class="meta">${filtered.length} 筆</span></div>
+    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong>${renderTwdEstimate(groupTotal)}<span class="meta">兩人結算每人 ${formatYen(sharePerPerson)}</span></div>
+    <div class="stat"><span>個人支出</span><strong>${formatYen(personalTotal)}</strong>${renderTwdEstimate(personalTotal)}<span class="meta">不分帳項目</span></div>
+    <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong>${renderTwdEstimate(publicAccountPaid)}<span class="meta">由公帳餘額扣除</span></div>
+    <div class="stat"><span>兩人結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">只計 XUN / UT 直接代付的分帳</span></div>
     <div class="expense-breakdown payer-breakdown" aria-label="付款人小計">
       ${payerTotals
         .map(
@@ -1171,24 +1565,30 @@ function renderExpenses() {
             <span>
               <b>${escapeHtml(payer)}</b>
               ${formatYen(amount)}
+              ${renderTwdEstimate(amount, "breakdown-twd")}
             </span>
           `
         )
         .join("")}
     </div>
-    <div class="expense-breakdown member-breakdown" aria-label="兩人付款與分攤">
-      ${memberTotals
+    <div class="expense-breakdown member-breakdown" aria-label="XUN 與 UT 直接代付結算">
+      ${settlement.members
         .map(
-          ({ member, paid, groupPaid, personal, ownCost, balance }) => `
-            <span>
-              <b>${escapeHtml(member)}</b>
-              已付 ${formatYen(paid)}<br>
-              團體代付 ${formatYen(groupPaid)}<br>
-              個人 ${formatYen(personal)}<br>
-              應負擔 ${formatYen(ownCost)}<br>
-              ${balance >= 0 ? `應收 ${formatYen(balance)}` : `應付 ${formatYen(Math.abs(balance))}`}
-            </span>
-          `
+          ({ member, paid, share, balance }) => {
+            const result = balance > 0.5
+              ? `結清後應收 ${formatYen(balance)}`
+              : balance < -0.5
+                ? `結清後應付 ${formatYen(Math.abs(balance))}`
+                : "結清後無需收付";
+            return `
+              <span>
+                <b>${escapeHtml(member)}</b>
+                分帳代付 ${formatYen(paid)}<br>
+                兩人各分攤 ${formatYen(share)}<br>
+                ${result}
+              </span>
+            `;
+          }
         )
         .join("")}
     </div>
@@ -1217,9 +1617,9 @@ function renderExpenses() {
               </div>
               <div>
                 <h3>${escapeHtml(expense.name)}</h3>
-                <div class="meta">${expense.note ? `${escapeHtml(expense.note)}<br>` : ""}${expense.split ? `要分帳，每人約 ${formatYen(expense.amount / expenseMembers.length)}` : "不分帳，算付款人的個人支出"}</div>
+                <div class="meta">${expense.note ? `${escapeHtml(expense.note)}<br>` : ""}${expense.split ? `要分帳，每人約 ${formatYen(expense.amount / expenseMembers.length)}` : `不分帳，算 ${escapeHtml(expense.owner)} 的個人支出`}</div>
               </div>
-              <div class="expense-amount">${formatYen(expense.amount)}</div>
+              <div class="expense-amount"><span>${formatYen(expense.amount)}</span>${renderTwdEstimate(expense.amount)}</div>
               <button class="text-button danger-action expense-delete" type="button" data-expense-id="${escapeAttr(expense.id)}">刪除</button>
             </article>
           `
@@ -1251,18 +1651,51 @@ function csvCell(value) {
 }
 
 function exportExpensesCsv() {
+  const rate = getEffectiveExchangeRate();
+  const records = [
+    ...loadExpenses().map((expense) => ({
+      type: "支出",
+      date: expense.date,
+      category: expense.category,
+      payer: expense.payer,
+      owner: expense.split ? "共同" : expense.owner,
+      split: expense.split ? "要分帳" : "不分帳",
+      name: expense.name,
+      amount: expense.amount,
+      share: expense.split ? Math.round(expense.amount / expenseMembers.length) : expense.amount,
+      note: expense.note,
+      createdAt: expense.createdAt
+    })),
+    ...loadPublicFundDeposits().map((deposit) => ({
+      type: "公帳補入",
+      date: deposit.date,
+      category: "公帳",
+      payer: deposit.member,
+      owner: "公帳",
+      split: "",
+      name: "補入公帳",
+      amount: deposit.amount,
+      share: "",
+      note: deposit.note,
+      createdAt: deposit.createdAt
+    }))
+  ].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const rows = [
-    ["日期", "分類", "付款人", "是否分帳", "項目", "金額", "每人分攤", "備註", "建立時間"],
-    ...loadExpenses().map((expense) => [
-      expense.date,
-      expense.category,
-      expense.payer,
-      expense.split ? "要分帳" : "不分帳",
-      expense.name,
-      expense.amount,
-      expense.split ? Math.round(expense.amount / expenseMembers.length) : expense.amount,
-      expense.note,
-      expense.createdAt
+    ["紀錄類型", "日期", "分類", "付款來源", "歸屬", "是否分帳", "項目", "金額 JPY", "台幣估算", "採用匯率", "每人分攤 JPY", "備註", "建立時間"],
+    ...records.map((record) => [
+      record.type,
+      record.date,
+      record.category,
+      record.payer,
+      record.owner,
+      record.split,
+      record.name,
+      record.amount,
+      rate ? Math.round(record.amount * rate) : "",
+      rate || "",
+      record.share,
+      record.note,
+      record.createdAt
     ])
   ];
   const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\n")}`;
@@ -1272,13 +1705,15 @@ function exportExpensesCsv() {
 function buildLocalBackup() {
   return {
     app: "okayama-travel-app",
-    version: 1,
+    version: 3,
     exportedAt: new Date().toISOString(),
     data: {
       itinerary: tripDays,
       checklist: readJson(STORAGE_KEYS.checklist, {}),
       memo: localStorage.getItem(STORAGE_KEYS.memo) || "",
-      expenses: loadExpenses()
+      expenses: loadExpenses(),
+      exchangeRate: exchangeRateSettings,
+      publicFund: loadPublicFundDeposits()
     }
   };
 }
@@ -1298,8 +1733,15 @@ function restoreLocalBackup(backup) {
   writeJson(STORAGE_KEYS.checklist, data.checklist || {});
   localStorage.setItem(STORAGE_KEYS.memo, String(data.memo || ""));
   writeJson(STORAGE_KEYS.expenses, data.expenses);
+  writeJson(STORAGE_KEYS.publicFund, Array.isArray(data.publicFund) ? data.publicFund : []);
+  if (data.exchangeRate && typeof data.exchangeRate === "object") {
+    writeJson(STORAGE_KEYS.exchangeRate, data.exchangeRate);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.exchangeRate);
+  }
 
   tripDays = loadTripDays();
+  exchangeRateSettings = loadExchangeRateSettings();
   state.activeDay = getInitialActiveDayKey();
   const memo = $("#tripMemo");
   if (memo) memo.value = localStorage.getItem(STORAGE_KEYS.memo) || "";
@@ -1308,15 +1750,18 @@ function restoreLocalBackup(backup) {
   renderFilters();
   renderPoints();
   renderExpenseControls();
+  renderExchangeRatePanel();
+  renderPublicFund();
   renderExpenses();
   renderChecklist();
+  fetchExchangeRate();
 }
 
 async function importLocalBackup(file) {
   if (!file) return;
   try {
     const backup = JSON.parse(await file.text());
-    if (!confirm("匯入備份會覆蓋這支手機目前的行程修改、記帳、清單與備忘錄，要繼續嗎？")) return;
+    if (!confirm("匯入備份會覆蓋這支手機目前的行程修改、記帳、公帳、清單與備忘錄，要繼續嗎？")) return;
     restoreLocalBackup(backup);
     alert("備份已匯入。");
   } catch {
@@ -1392,24 +1837,31 @@ function initTripMemo() {
 }
 
 async function clearLocalData() {
-  if (!confirm("清除這支手機上的行程修改、記帳、清單勾選與離線快取？")) return;
+  if (!confirm("清除這支手機上的行程修改、記帳、公帳、清單勾選與離線快取？")) return;
   localStorage.removeItem(STORAGE_KEYS.itinerary);
   localStorage.removeItem(STORAGE_KEYS.checklist);
   localStorage.removeItem(STORAGE_KEYS.memo);
   localStorage.removeItem(STORAGE_KEYS.expenses);
   localStorage.removeItem(STORAGE_KEYS.weather);
+  localStorage.removeItem(STORAGE_KEYS.exchangeRate);
+  localStorage.removeItem(STORAGE_KEYS.publicFund);
   if ("caches" in window) {
     const cacheKeys = await caches.keys();
     await Promise.all(cacheKeys.filter((key) => key.startsWith("okayama-trip")).map((key) => caches.delete(key)));
   }
   tripDays = clone(defaultDays);
+  exchangeRateSettings = loadExchangeRateSettings();
+  exchangeRateRequestStatus = "idle";
   state.activeDay = tripDays[0].key;
   const memo = $("#tripMemo");
   if (memo) memo.value = "";
   renderDayNav();
   renderDayDetail();
+  renderExchangeRatePanel();
+  renderPublicFund();
   renderExpenses();
   renderChecklist();
+  fetchExchangeRate(true);
 }
 
 function init() {
@@ -1438,6 +1890,8 @@ function init() {
   renderPoints();
   renderBudget();
   renderExpenseControls();
+  initExchangeRate();
+  renderPublicFund();
   renderExpenses();
   renderChecklist();
   renderPhrases();

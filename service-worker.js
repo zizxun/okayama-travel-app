@@ -1,4 +1,4 @@
-const CACHE_NAME = "okayama-trip-v11";
+const CACHE_NAME = "okayama-trip-v14";
 const APP_SHELL = [
   "./",
   "./index.html",
