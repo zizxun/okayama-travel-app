@@ -14,7 +14,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/okayama-icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="./icons/okayama-icon-192.png" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=17" />
   </head>
   <body>
     <div class="app-shell">
@@ -36,41 +36,6 @@
       </header>
 
       <main>
-        <section class="trip-summary" aria-label="旅行總覽">
-          <div class="summary-card">
-            <p class="eyebrow">Trip</p>
-            <h2>機票時間</h2>
-            <div class="flight-list" aria-label="機票時間">
-              <div class="flight-card">
-                <span>去程</span>
-                <strong>8/13 四 11:30-15:05</strong>
-                <small>抵達岡山桃太郎機場</small>
-              </div>
-              <div class="flight-card">
-                <span>回程</span>
-                <strong>8/19 三 15:55-17:40</strong>
-                <small>岡山桃太郎機場出發</small>
-              </div>
-            </div>
-            <label class="memo-field">
-              <span>備忘錄</span>
-              <textarea id="tripMemo" rows="5" placeholder="可以記航班訂位代號、飯店備註、想買的東西、同行提醒..."></textarea>
-            </label>
-          </div>
-
-          <figure class="pass-map-card">
-            <div class="map-heading">
-              <div>
-                <p class="eyebrow">JR-WEST Pass</p>
-                <h2>關西＆廣島地區鐵路周遊券範圍</h2>
-              </div>
-              <a class="text-button map-open" href="./assets/kansai_hiroshima_map.jpg" target="_blank" rel="noreferrer">開圖</a>
-            </div>
-            <img src="./assets/kansai_hiroshima_map.jpg" alt="關西＆廣島地區鐵路周遊券可使用區域地圖" />
-            <figcaption>重點看岡山、廣島、宮島、姬路與關西方向；實際可搭列車仍以 JR-WEST 官方規則為準。</figcaption>
-          </figure>
-        </section>
-
         <nav class="tabs" aria-label="主要功能">
           <button class="tab active" type="button" data-tab="itinerary">行程</button>
           <button class="tab" type="button" data-tab="points">點位</button>
@@ -107,7 +72,23 @@
           <section class="exchange-panel" aria-labelledby="exchangeRateTitle">
             <div class="exchange-heading">
               <div>
-                <p class="eyebrow" id="exchangeRateTitle">JPY → TWD</p>
+                <p class="eyebrow">匯率工具</p>
+                <h2 id="exchangeRateTitle">快速試算</h2>
+              </div>
+            </div>
+
+            <div class="calculator-row">
+              <label>
+                日圓 JPY
+                <input id="exchangeCalculatorYen" type="number" inputmode="numeric" min="0" step="1" value="1000" />
+              </label>
+              <span class="calculator-equals" aria-hidden="true">=</span>
+              <output id="exchangeCalculatorTwd" for="exchangeCalculatorYen">等待匯率</output>
+            </div>
+
+            <div class="exchange-reference">
+              <div class="exchange-reference-copy">
+                <span class="exchange-pair">JPY → TWD · 每日參考匯率</span>
                 <div class="exchange-rate-line">
                   <strong id="exchangeRateDisplay">取得匯率中</strong>
                   <span class="exchange-source" id="exchangeRateStatus" role="status"></span>
@@ -120,32 +101,6 @@
                 </svg>
               </button>
             </div>
-
-            <div class="exchange-settings">
-              <label>
-                匯率來源
-                <select id="exchangeRateMode">
-                  <option value="auto">每日參考匯率</option>
-                  <option value="manual">自訂匯率</option>
-                </select>
-              </label>
-              <label id="manualExchangeRateField" hidden>
-                ¥1 等於多少台幣
-                <input id="manualExchangeRate" type="number" inputmode="decimal" min="0.0001" step="0.0001" placeholder="0.2000" />
-              </label>
-            </div>
-
-            <details class="exchange-calculator">
-              <summary>快速試算</summary>
-              <div class="calculator-row">
-                <label>
-                  日圓 JPY
-                  <input id="exchangeCalculatorYen" type="number" inputmode="numeric" min="0" step="1" value="1000" />
-                </label>
-                <span class="calculator-equals" aria-hidden="true">=</span>
-                <output id="exchangeCalculatorTwd" for="exchangeCalculatorYen">等待匯率</output>
-              </div>
-            </details>
           </section>
 
           <section class="public-fund-panel" aria-labelledby="publicFundTitle">
@@ -261,10 +216,45 @@
             <div id="phraseList"></div>
           </section>
         </section>
+
+        <section class="trip-summary trip-reference" aria-label="旅行參考資訊">
+          <div class="summary-card">
+            <p class="eyebrow">Trip</p>
+            <h2>機票時間</h2>
+            <div class="flight-list" aria-label="機票時間">
+              <div class="flight-card">
+                <span>去程</span>
+                <strong>8/13 四 11:30-15:05</strong>
+                <small>抵達岡山桃太郎機場</small>
+              </div>
+              <div class="flight-card">
+                <span>回程</span>
+                <strong>8/19 三 15:55-17:40</strong>
+                <small>岡山桃太郎機場出發</small>
+              </div>
+            </div>
+            <label class="memo-field">
+              <span>備忘錄</span>
+              <textarea id="tripMemo" rows="5" placeholder="可以記航班訂位代號、飯店備註、想買的東西、同行提醒..."></textarea>
+            </label>
+          </div>
+
+          <figure class="pass-map-card">
+            <div class="map-heading">
+              <div>
+                <p class="eyebrow">JR-WEST Pass</p>
+                <h2>關西＆廣島地區鐵路周遊券範圍</h2>
+              </div>
+              <a class="text-button map-open" href="./assets/kansai_hiroshima_map.jpg" target="_blank" rel="noreferrer">開圖</a>
+            </div>
+            <img src="./assets/kansai_hiroshima_map.jpg" alt="關西＆廣島地區鐵路周遊券可使用區域地圖" />
+            <figcaption>重點看岡山、廣島、宮島、姬路與關西方向；實際可搭列車仍以 JR-WEST 官方規則為準。</figcaption>
+          </figure>
+        </section>
       </main>
     </div>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=17"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         window.addEventListener("load", () => {

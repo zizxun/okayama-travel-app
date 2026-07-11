@@ -458,11 +458,8 @@ function savePublicFundDeposits(deposits) {
 function loadExchangeRateSettings() {
   const saved = readJson(STORAGE_KEYS.exchangeRate, {});
   const autoRate = Number(saved?.autoRate);
-  const manualRate = Number(saved?.manualRate);
   return {
-    mode: saved?.mode === "manual" ? "manual" : "auto",
     autoRate: autoRate > 0 ? autoRate : null,
-    manualRate: manualRate > 0 ? manualRate : null,
     rateDate: String(saved?.rateDate || ""),
     fetchedAt: Number(saved?.fetchedAt) || 0
   };
@@ -473,9 +470,6 @@ function saveExchangeRateSettings() {
 }
 
 function getEffectiveExchangeRate() {
-  if (exchangeRateSettings.mode === "manual" && exchangeRateSettings.manualRate) {
-    return exchangeRateSettings.manualRate;
-  }
   return exchangeRateSettings.autoRate;
 }
 
@@ -1385,24 +1379,13 @@ function renderExchangeRatePanel() {
   if (!display) return;
 
   const rate = getEffectiveExchangeRate();
-  const isManual = exchangeRateSettings.mode === "manual";
-  const modeSelect = $("#exchangeRateMode");
-  const manualField = $("#manualExchangeRateField");
-  const manualInput = $("#manualExchangeRate");
   const refreshButton = $("#refreshExchangeRate");
 
-  modeSelect.value = exchangeRateSettings.mode;
-  manualField.hidden = !isManual;
-  if (document.activeElement !== manualInput) {
-    manualInput.value = exchangeRateSettings.manualRate || exchangeRateSettings.autoRate || "";
-  }
   refreshButton.disabled = exchangeRateRequestStatus === "loading";
   display.textContent = rate ? `¥1 = NT$${rate.toFixed(4)}` : "尚未取得匯率";
 
   let statusText = "連線後會自動取得每日參考匯率";
-  if (isManual && rate) {
-    statusText = "使用這支手機的自訂匯率";
-  } else if (exchangeRateRequestStatus === "loading") {
+  if (exchangeRateRequestStatus === "loading") {
     statusText = exchangeRateSettings.autoRate ? "正在檢查最新匯率" : "正在取得每日參考匯率";
   } else if (exchangeRateRequestStatus === "error") {
     statusText = exchangeRateSettings.autoRate ? "目前離線，沿用上次匯率" : "目前無法取得匯率";
@@ -1444,29 +1427,6 @@ async function fetchExchangeRate(force = false) {
 }
 
 function initExchangeRate() {
-  $("#exchangeRateMode").addEventListener("change", (event) => {
-    exchangeRateSettings.mode = event.target.value === "manual" ? "manual" : "auto";
-    if (exchangeRateSettings.mode === "manual" && !exchangeRateSettings.manualRate) {
-      exchangeRateSettings.manualRate = exchangeRateSettings.autoRate || 0.2;
-    }
-    saveExchangeRateSettings();
-    renderExchangeRatePanel();
-    renderExpenses();
-    renderPublicFund();
-    if (exchangeRateSettings.mode === "auto") fetchExchangeRate();
-  });
-  $("#manualExchangeRate").addEventListener("change", (event) => {
-    const rate = Number(event.target.value);
-    if (!Number.isFinite(rate) || rate <= 0) {
-      event.target.value = exchangeRateSettings.manualRate || exchangeRateSettings.autoRate || "";
-      return;
-    }
-    exchangeRateSettings.manualRate = rate;
-    saveExchangeRateSettings();
-    renderExchangeRatePanel();
-    renderExpenses();
-    renderPublicFund();
-  });
   $("#exchangeCalculatorYen").addEventListener("input", renderExchangeCalculator);
   $("#refreshExchangeRate").addEventListener("click", () => fetchExchangeRate(true));
   renderExchangeRatePanel();
@@ -1865,7 +1825,12 @@ async function clearLocalData() {
 }
 
 function init() {
-  $all(".tab").forEach((tab) => tab.addEventListener("click", () => setTab(tab.dataset.tab)));
+  $all(".tab").forEach((tab) =>
+    tab.addEventListener("click", () => {
+      setTab(tab.dataset.tab);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    })
+  );
   $("#printBtn").addEventListener("click", () => window.print());
   $("#editModeToggle").addEventListener("click", () => {
     state.editMode = !state.editMode;
