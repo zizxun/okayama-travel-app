@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0f766e" />
+    <meta name="theme-color" content="#173d37" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="岡山行程" />
-    <title>岡山行程助手</title>
+    <title>岡山旅程</title>
     <meta
       name="description"
       content="2026/8/13-8/19 岡山、宮島、姬路、倉敷、廣島旅行助手"
@@ -14,14 +14,18 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/okayama-icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="./icons/okayama-icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=17" />
+    <link rel="stylesheet" href="./styles.css?v=18" />
+    <link rel="stylesheet" href="./styles-6c.css?v=18" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">2026/8/13-8/19</p>
-          <h1>岡山行程助手</h1>
+        <div class="brand-lockup">
+          <span class="brand-ticket" aria-hidden="true">OKJ</span>
+          <div>
+            <p class="eyebrow">2026/8/13-8/19</p>
+            <h1>岡山旅程</h1>
+          </div>
         </div>
         <div class="top-actions">
           <button class="text-button" id="editModeToggle" type="button">編輯</button>
@@ -37,19 +41,38 @@
 
       <main>
         <nav class="tabs" aria-label="主要功能">
-          <button class="tab active" type="button" data-tab="itinerary">行程</button>
-          <button class="tab" type="button" data-tab="points">點位</button>
-          <button class="tab" type="button" data-tab="budget">預算</button>
-          <button class="tab" type="button" data-tab="expenses">記帳</button>
-          <button class="tab" type="button" data-tab="checklist">清單</button>
+          <button class="tab active" type="button" data-tab="itinerary">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z" /></svg>
+            <span>行程</span>
+          </button>
+          <button class="tab" type="button" data-tab="points">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z" /><path d="M9 3v15M15 6v15" /></svg>
+            <span>地點</span>
+          </button>
+          <button class="tab" type="button" data-tab="expenses">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7V5a2 2 0 0 0-2-2H5a3 3 0 0 0 0 6h16v11H5a3 3 0 0 1-3-3V6" /><path d="M16 14h2" /></svg>
+            <span>記帳</span>
+          </button>
+          <button class="tab" type="button" data-tab="checklist">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+            <span>清單</span>
+          </button>
+          <button class="tab" type="button" data-tab="trip">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M22 2 9 15" /><path d="m22 2-7 20-4-9-9-4Z" /></svg>
+            <span>Trip</span>
+          </button>
         </nav>
 
         <section class="view active" id="itinerary" aria-label="每日行程">
+          <header class="itinerary-screen-header" id="itineraryScreenHeader"></header>
           <div class="day-nav" id="dayNav"></div>
           <article class="day-detail" id="dayDetail"></article>
         </section>
 
         <section class="view" id="points" aria-label="地圖點位">
+          <header class="view-heading">
+            <div><p class="eyebrow">Places</p><h2>地點</h2></div>
+          </header>
           <div class="toolbar">
             <label>
               日期
@@ -63,32 +86,31 @@
           <div class="point-list" id="pointList"></div>
         </section>
 
-        <section class="view" id="budget" aria-label="交通與預算">
-          <div class="budget-summary" id="budgetSummary"></div>
-          <div class="budget-list" id="budgetList"></div>
-        </section>
-
         <section class="view" id="expenses" aria-label="旅行記帳">
+          <header class="view-heading expense-view-heading">
+            <div><p class="eyebrow" id="expenseHeaderDate">8/13 · JPY</p><h2>記帳</h2></div>
+            <button class="icon-button expense-add-toggle" id="expenseAddToggle" type="button" aria-controls="expenseAddPanel" aria-expanded="false" aria-label="新增支出" title="新增支出">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+          </header>
           <section class="exchange-panel" aria-labelledby="exchangeRateTitle">
-            <div class="exchange-heading">
-              <div>
-                <p class="eyebrow">匯率工具</p>
-                <h2 id="exchangeRateTitle">快速試算</h2>
-              </div>
-            </div>
+            <h2 class="visually-hidden" id="exchangeRateTitle">快速試算</h2>
 
             <div class="calculator-row">
               <label>
-                日圓 JPY
+                JPY
                 <input id="exchangeCalculatorYen" type="number" inputmode="numeric" min="0" step="1" value="1000" />
               </label>
               <span class="calculator-equals" aria-hidden="true">=</span>
-              <output id="exchangeCalculatorTwd" for="exchangeCalculatorYen">等待匯率</output>
+              <div class="calculator-output">
+                <span>TWD</span>
+                <output id="exchangeCalculatorTwd" for="exchangeCalculatorYen">等待匯率</output>
+              </div>
             </div>
 
             <div class="exchange-reference">
               <div class="exchange-reference-copy">
-                <span class="exchange-pair">JPY → TWD · 每日參考匯率</span>
+                <span class="exchange-pair">每日參考匯率</span>
                 <div class="exchange-rate-line">
                   <strong id="exchangeRateDisplay">取得匯率中</strong>
                   <span class="exchange-source" id="exchangeRateStatus" role="status"></span>
@@ -103,16 +125,18 @@
             </div>
           </section>
 
+          <div class="expense-summary" id="expenseSummary"></div>
+
           <section class="public-fund-panel" aria-labelledby="publicFundTitle">
             <div class="public-fund-heading">
               <div>
-                <p class="eyebrow">共同錢包</p>
                 <h2 id="publicFundTitle">公帳</h2>
               </div>
-              <p class="public-fund-status" id="publicFundStatus" role="status"></p>
+              <span class="section-note">兩人共同支出</span>
             </div>
 
             <div class="public-fund-summary" id="publicFundSummary"></div>
+            <p class="public-fund-status" id="publicFundStatus" role="status"></p>
 
             <div class="public-fund-tools">
               <details class="public-fund-topup">
@@ -137,88 +161,132 @@
                   <button class="text-button primary-action" type="submit">補入</button>
                 </form>
               </details>
-
-              <details class="public-fund-ledger-panel">
-                <summary id="publicFundLedgerSummary">公帳明細</summary>
-                <div class="public-fund-ledger" id="publicFundLedger"></div>
-              </details>
             </div>
           </section>
 
-          <form class="expense-form" id="expenseForm">
-            <label>
-              日期
-              <select id="expenseDate" required></select>
-            </label>
-            <label>
-              分類
-              <select id="expenseCategory" required></select>
-            </label>
-            <label>
-              金額 JPY
-              <input id="expenseAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="1200" required />
-            </label>
-            <label>
-              付款人
-              <select id="expensePayer" required></select>
-            </label>
-            <label>
-              分帳
-              <select id="expenseSplit" required></select>
-            </label>
-            <label class="expense-owner-field" id="expenseOwnerField" hidden>
-              算誰的
-              <select id="expenseOwner" disabled></select>
-            </label>
-            <label>
-              項目
-              <input id="expenseName" type="text" maxlength="40" placeholder="午餐、車票、伴手禮" required />
-            </label>
-            <label class="expense-note-field">
-              備註
-              <input id="expenseNote" type="text" maxlength="80" placeholder="店名或付款方式" />
-            </label>
-            <button class="text-button primary-action" type="submit">新增</button>
-          </form>
+          <section class="recent-expenses" aria-labelledby="recentExpensesTitle">
+            <div class="recent-expenses-heading">
+              <h2 id="recentExpensesTitle">最近明細</h2>
+              <span id="recentExpenseTotal"></span>
+            </div>
+            <div class="recent-expense-list" id="expenseRecentList"></div>
+          </section>
 
-          <div class="expense-summary" id="expenseSummary"></div>
+          <details class="expense-bottom-panel" id="expenseAddPanel">
+            <summary>新增支出</summary>
+            <form class="expense-form" id="expenseForm">
+              <label>
+                日期
+                <select id="expenseDate" required></select>
+              </label>
+              <label>
+                分類
+                <select id="expenseCategory" required></select>
+              </label>
+              <label>
+                金額 JPY
+                <input id="expenseAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="1200" required />
+              </label>
+              <label>
+                付款人
+                <select id="expensePayer" required></select>
+              </label>
+              <label>
+                分帳
+                <select id="expenseSplit" required></select>
+              </label>
+              <label class="expense-owner-field" id="expenseOwnerField" hidden>
+                算誰的
+                <select id="expenseOwner" disabled></select>
+              </label>
+              <label>
+                項目
+                <input id="expenseName" type="text" maxlength="40" placeholder="午餐、車票、伴手禮" required />
+              </label>
+              <label class="expense-note-field">
+                備註
+                <input id="expenseNote" type="text" maxlength="80" placeholder="店名或付款方式" />
+              </label>
+              <button class="text-button primary-action" type="submit">新增</button>
+            </form>
+          </details>
 
-          <div class="toolbar expense-filters">
-            <button class="text-button" id="exportExpensesCsv" type="button">匯出 CSV</button>
-            <label>
-              日期
-              <select id="expenseDayFilter"></select>
-            </label>
-            <label>
-              分類
-              <select id="expenseCategoryFilter"></select>
-            </label>
-            <label>
-              付款人
-              <select id="expensePayerFilter"></select>
-            </label>
-          </div>
+          <details class="expense-bottom-panel expense-details-panel" id="expenseDetailsPanel">
+            <summary>詳細資訊</summary>
+            <div class="expense-detail-summary" id="expenseDetailSummary"></div>
+            <div class="toolbar expense-filters">
+              <button class="text-button" id="exportExpensesCsv" type="button">匯出 CSV</button>
+              <label>
+                日期
+                <select id="expenseDayFilter"></select>
+              </label>
+              <label>
+                分類
+                <select id="expenseCategoryFilter"></select>
+              </label>
+              <label>
+                付款人
+                <select id="expensePayerFilter"></select>
+              </label>
+            </div>
+            <div class="expense-list" id="expenseList"></div>
+          </details>
 
-          <div class="expense-list" id="expenseList"></div>
+          <details class="expense-bottom-panel public-fund-ledger-bottom" id="publicFundLedgerPanel">
+            <summary id="publicFundLedgerSummary">公帳明細</summary>
+            <div class="public-fund-ledger" id="publicFundLedger"></div>
+          </details>
         </section>
 
         <section class="view" id="checklist" aria-label="行前清單">
+          <header class="view-heading">
+            <div><p class="eyebrow" id="departureCountdown">Departure</p><h2>行前清單</h2></div>
+            <details class="checklist-more">
+              <summary class="icon-button" aria-label="清單更多操作" title="更多操作">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <circle cx="5" cy="12" r="1" />
+                  <circle cx="12" cy="12" r="1" />
+                  <circle cx="19" cy="12" r="1" />
+                </svg>
+              </summary>
+              <div class="checklist-more-menu">
+                <button class="text-button" id="resetChecklist" type="button">重設清單</button>
+                <button class="text-button danger-action" id="clearLocalData" type="button">清除本機資料</button>
+              </div>
+            </details>
+          </header>
+          <section class="checklist-progress" id="checklistProgress" aria-live="polite"></section>
           <div class="toolbar checklist-tools">
-            <button class="text-button" id="exportBackup" type="button">匯出備份</button>
-            <button class="text-button" id="importBackup" type="button">匯入備份</button>
+            <button class="text-button" id="exportBackup" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 20h16" /></svg>
+              匯出備份
+            </button>
+            <button class="text-button" id="importBackup" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 21V9M7 14l5-5 5 5M4 4h16" /></svg>
+              匯入備份
+            </button>
             <input class="visually-hidden" id="backupFileInput" type="file" accept="application/json,.json" />
-            <button class="text-button" id="resetChecklist" type="button">重設清單</button>
-            <button class="text-button danger-action" id="clearLocalData" type="button">清除本機資料</button>
+          </div>
+          <div class="checklist-section-heading">
+            <h3>重要準備</h3>
+            <span id="checklistItemCount"></span>
           </div>
           <div class="checklist" id="checklistItems"></div>
-          <section class="phrase-panel">
-            <h2>日文小句</h2>
-            <div id="phraseList"></div>
-          </section>
         </section>
 
-        <section class="trip-summary trip-reference" aria-label="旅行參考資訊">
-          <div class="summary-card">
+        <section class="view" id="trip" aria-label="旅行與周遊券資訊">
+          <header class="view-heading">
+            <div><p class="eyebrow">2026 · Okayama</p><h2>Trip</h2></div>
+          </header>
+          <section class="trip-weather-section" aria-labelledby="tripWeatherTitle">
+            <div class="trip-section-heading">
+              <p class="eyebrow">Weather</p>
+              <h2 id="tripWeatherTitle">目的地天氣</h2>
+            </div>
+            <div id="tripWeatherHost"></div>
+          </section>
+          <div class="trip-summary trip-reference" aria-label="旅行參考資訊">
+            <div class="summary-card">
             <p class="eyebrow">Trip</p>
             <h2>機票時間</h2>
             <div class="flight-list" aria-label="機票時間">
@@ -237,9 +305,9 @@
               <span>備忘錄</span>
               <textarea id="tripMemo" rows="5" placeholder="可以記航班訂位代號、飯店備註、想買的東西、同行提醒..."></textarea>
             </label>
-          </div>
+            </div>
 
-          <figure class="pass-map-card">
+            <figure class="pass-map-card">
             <div class="map-heading">
               <div>
                 <p class="eyebrow">JR-WEST Pass</p>
@@ -249,12 +317,22 @@
             </div>
             <img src="./assets/kansai_hiroshima_map.jpg" alt="關西＆廣島地區鐵路周遊券可使用區域地圖" />
             <figcaption>重點看岡山、廣島、宮島、姬路與關西方向；實際可搭列車仍以 JR-WEST 官方規則為準。</figcaption>
-          </figure>
+            </figure>
+          </div>
+
+          <section class="trip-budget" aria-label="交通與預算">
+            <div class="trip-section-heading">
+              <p class="eyebrow">Transport</p>
+              <h2>交通與 Pass 項目</h2>
+            </div>
+            <div class="budget-summary" id="budgetSummary"></div>
+            <div class="budget-list" id="budgetList"></div>
+          </section>
         </section>
       </main>
     </div>
 
-    <script src="./app.js?v=17"></script>
+    <script src="./app.js?v=18"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         window.addEventListener("load", () => {

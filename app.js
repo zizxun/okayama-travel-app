@@ -272,14 +272,6 @@ const checklist = [
   "最後一天確認岡山站西口 12:55 機場巴士"
 ];
 
-const phrases = [
-  ["請問這班車可以用 JR-WEST pass 嗎？", "この列車はJR-WESTパスで乗れますか。"],
-  ["我想劃指定席，岡山到廣島。", "岡山から広島まで指定席を予約したいです。"],
-  ["請問往岡山機場的巴士站在哪裡？", "岡山空港行きのバス乗り場はどこですか。"],
-  ["有沒有兩位的座位？", "二名ですが、席はありますか。"],
-  ["我有預約。", "予約しています。"]
-];
-
 const STORAGE_KEYS = {
   itinerary: "okayamaItineraryV2",
   checklist: "okayamaChecklist",
@@ -313,6 +305,16 @@ const weatherLocations = {
   "0817": { name: "岡山", latitude: 34.6618, longitude: 133.935 },
   "0818": { name: "廣島", latitude: 34.3853, longitude: 132.4553 },
   "0819": { name: "岡山機場", latitude: 34.7569, longitude: 133.8553 }
+};
+
+const itineraryTicketMeta = {
+  "0813": { headline: "今天抵達岡山", from: "岡山機場", fromEn: "OKAYAMA AIRPORT", to: "岡山", toEn: "OKAYAMA" },
+  "0814": { headline: "今天去宮島", from: "岡山", fromEn: "OKAYAMA", to: "宮島", toEn: "MIYAJIMA" },
+  "0815": { headline: "今天去姬路與吉備津", from: "岡山", fromEn: "OKAYAMA", to: "姬路", toEn: "HIMEJI" },
+  "0816": { headline: "今天去倉敷", from: "岡山", fromEn: "OKAYAMA", to: "倉敷", toEn: "KURASHIKI" },
+  "0817": { headline: "今天遊岡山市區", from: "岡山站", fromEn: "OKAYAMA", to: "岡山城", toEn: "OKAYAMA CASTLE" },
+  "0818": { headline: "今天去廣島", from: "岡山", fromEn: "OKAYAMA", to: "廣島", toEn: "HIROSHIMA" },
+  "0819": { headline: "今天從岡山回家", from: "岡山", fromEn: "OKAYAMA", to: "岡山機場", toEn: "OKAYAMA AIRPORT" }
 };
 
 const weatherCodeLabels = {
@@ -579,6 +581,31 @@ function getTodayIsoDate() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
 
+function renderDepartureCountdown() {
+  const output = $("#departureCountdown");
+  if (!output) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tripStart = new Date(TRIP_YEAR, 7, 13);
+  const tripEnd = new Date(TRIP_YEAR, 7, 19);
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  if (today < tripStart) {
+    const days = Math.round((tripStart - today) / dayMs);
+    output.textContent = `Departure · ${days} day${days === 1 ? "" : "s"}`;
+    return;
+  }
+
+  if (today <= tripEnd) {
+    const tripDay = Math.floor((today - tripStart) / dayMs) + 1;
+    output.textContent = `Trip · Day ${tripDay} / 7`;
+    return;
+  }
+
+  output.textContent = "Trip · Complete";
+}
+
 function getTodayTripDayKey() {
   const today = getTodayIsoDate();
   return tripDays.find((day) => getTripIsoDate(day) === today)?.key || "";
@@ -629,6 +656,7 @@ function setTab(tabName) {
   state.activeTab = tabName;
   $all(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === tabName));
   $all(".view").forEach((view) => view.classList.toggle("active", view.id === tabName));
+  if (tabName === "trip") renderTripWeather();
 }
 
 function syncEditButton() {
@@ -642,13 +670,99 @@ function getMapSearchUrl(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-function renderDayActions(day) {
-  const nextStop = getNextScheduleStop(day);
+function getTicketMeta(day) {
+  return itineraryTicketMeta[day.key] || {
+    headline: day.title,
+    from: "岡山",
+    fromEn: "OKAYAMA",
+    to: day.title,
+    toEn: "DESTINATION"
+  };
+}
+
+function getPassDayLabel(day) {
+  const passDay = String(day.pass).match(/Day\s*(\d+)/i)?.[1];
+  return passDay ? `DAY ${passDay} / 5` : day.pass;
+}
+
+function renderWeatherIcon() {
   return `
-    <div class="day-actions">
-      <span class="badge ${day.passCovered ? "" : "self"}">${escapeHtml(day.pass)}</span>
-      <a class="text-button map-action" href="${escapeAttr(nextStop.url)}" target="_blank" rel="noreferrer">下一站</a>
-      <a class="text-button map-action" href="${escapeAttr(getDayRouteUrl(day))}" target="_blank" rel="noreferrer">今日地圖</a>
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  `;
+}
+
+function renderItineraryHeader(day) {
+  const header = $("#itineraryScreenHeader");
+  if (!header) return;
+  const meta = getTicketMeta(day);
+  header.innerHTML = `
+    <div>
+      <p class="eyebrow">${escapeHtml(day.weekday)} · ${escapeHtml(day.date)} · ${escapeHtml(day.pass)}</p>
+      <h2>${escapeHtml(meta.headline)}</h2>
+    </div>
+    <button class="current-weather" type="button" data-weather-compact-day="${escapeAttr(day.key)}" aria-label="更新${escapeAttr(weatherLocations[day.key]?.name || "目的地")}現在溫度">
+      ${renderWeatherIcon()}
+      <strong>--°</strong>
+    </button>
+  `;
+  header.querySelector("[data-weather-compact-day]")?.addEventListener("click", () => loadWeather(day, true));
+}
+
+function renderDayTicket(day) {
+  const meta = getTicketMeta(day);
+  const firstTime = day.schedule[0]?.[0] || "--:--";
+  const lastTime = day.schedule[day.schedule.length - 1]?.[0] || "--:--";
+  return `
+    <section class="route-ticket ${day.passCovered ? "pass-valid" : "self-paid"}" aria-label="${escapeAttr(meta.from)}到${escapeAttr(meta.to)}路線票券">
+      <div class="route-ticket-topline">
+        <span>${day.passCovered ? "JR-WEST AREA PASS" : "TRIP ROUTE"}</span>
+        <span>${escapeHtml(getPassDayLabel(day))}</span>
+      </div>
+      <div class="route-ticket-route">
+        <div><strong>${escapeHtml(meta.from)}</strong><small>${escapeHtml(meta.fromEn)}</small></div>
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 12h16M15 7l5 5-5 5" /></svg>
+        <div><strong>${escapeHtml(meta.to)}</strong><small>${escapeHtml(meta.toEn)}</small></div>
+      </div>
+      <div class="route-ticket-footer">
+        <span>${escapeHtml(firstTime)}</span>
+        <span>${escapeHtml(lastTime)}</span>
+        <b>${day.passCovered ? "VALID" : "SELF"}</b>
+      </div>
+    </section>
+  `;
+}
+
+function renderNextStopCard(day) {
+  const nextStop = getNextScheduleStop(day);
+  const time = day.schedule[nextStop.index]?.[0] || "未定";
+  return `
+    <section class="next-stop-card" aria-label="下一站">
+      <div>
+        <p>下一站 · 行程 ${nextStop.index + 1}/${day.schedule.length}</p>
+        <strong>${escapeHtml(nextStop.text)}</strong>
+        <small>${escapeHtml(time)}</small>
+      </div>
+      <a class="next-stop-action" href="${escapeAttr(nextStop.url)}" target="_blank" rel="noreferrer">導航</a>
+    </section>
+  `;
+}
+
+function renderScheduleMapButton(day, text) {
+  return `
+    <a class="slot-map-link" href="${escapeAttr(getScheduleMapUrl(day, text))}" target="_blank" rel="noreferrer" aria-label="導航到${escapeAttr(text)}" title="景點地圖">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z" /><path d="M9 3v15M15 6v15" /></svg>
+    </a>
+  `;
+}
+
+function renderScheduleHeading(day) {
+  return `
+    <div class="schedule-heading">
+      <div><h3>今日行程</h3><span>${day.schedule.length} 個項目</span></div>
+      <a href="${escapeAttr(getDayRouteUrl(day))}" target="_blank" rel="noreferrer">今日地圖</a>
     </div>
   `;
 }
@@ -746,7 +860,7 @@ function renderWeatherPanel(day) {
   if (!location) return "";
 
   return `
-    <section class="weather-panel" id="weatherPanel" data-weather-day="${escapeAttr(day.key)}">
+    <section class="weather-panel" id="tripWeatherPanel" data-weather-day="${escapeAttr(day.key)}">
       <div>
         <h3>${escapeHtml(location.name)}天氣</h3>
         <p class="meta">讀取溫度中...</p>
@@ -754,6 +868,14 @@ function renderWeatherPanel(day) {
       <button class="text-button weather-refresh" type="button" data-refresh-weather>更新</button>
     </section>
   `;
+}
+
+function renderTripWeather() {
+  const host = $("#tripWeatherHost");
+  const day = getActiveDay();
+  if (!host || !day) return;
+  host.innerHTML = renderWeatherPanel(day);
+  loadWeather(day);
 }
 
 function getWeatherLabel(code) {
@@ -786,8 +908,6 @@ function isFreshWeatherCache(item) {
 
 function renderWeatherData(day, data, stale = false) {
   const panel = document.querySelector(`[data-weather-day="${escapeAttr(day.key)}"]`);
-  if (!panel) return;
-
   const location = weatherLocations[day.key];
   const current = data.current || {};
   const daily = data.daily || {};
@@ -803,6 +923,14 @@ function renderWeatherData(day, data, stale = false) {
   const dailyText = hasDaily
     ? `${Number.isFinite(dailyMin) ? Math.round(dailyMin) : "--"}-${Number.isFinite(dailyMax) ? Math.round(dailyMax) : "--"}°C / 降雨 ${dailyRain}%`
     : "行程日前 16 天內會顯示當日預報";
+
+  const compact = document.querySelector(`[data-weather-compact-day="${escapeAttr(day.key)}"]`);
+  if (compact) {
+    compact.innerHTML = `${renderWeatherIcon()}<strong>${escapeHtml(temp.replace("C", ""))}</strong>`;
+    compact.title = `${location.name}現在 ${temp}，${getWeatherLabel(current.weather_code)}${stale ? "（快取）" : ""}`;
+  }
+
+  if (!panel) return;
 
   panel.innerHTML = `
     <div>
@@ -821,8 +949,13 @@ function renderWeatherData(day, data, stale = false) {
 
 function renderWeatherError(day, message) {
   const panel = document.querySelector(`[data-weather-day="${escapeAttr(day.key)}"]`);
-  if (!panel) return;
   const location = weatherLocations[day.key];
+  const compact = document.querySelector(`[data-weather-compact-day="${escapeAttr(day.key)}"]`);
+  if (compact) {
+    compact.innerHTML = `${renderWeatherIcon()}<strong>--°</strong>`;
+    compact.title = message;
+  }
+  if (!panel) return;
   panel.innerHTML = `
     <div>
       <h3>${escapeHtml(location.name)}天氣</h3>
@@ -835,7 +968,7 @@ function renderWeatherError(day, message) {
 
 async function loadWeather(day, force = false) {
   const location = weatherLocations[day.key];
-  if (!location || !$("#weatherPanel")) return;
+  if (!location) return;
 
   const cached = getCachedWeather(day);
   if (!force && cached && isFreshWeatherCache(cached)) {
@@ -873,9 +1006,9 @@ function renderDayNav() {
     .map(
       (day) => `
       <button class="day-button ${day.key === state.activeDay ? "active" : ""} ${day.key === todayKey ? "today" : ""}" type="button" data-day="${escapeAttr(day.key)}">
-        <strong>${escapeHtml(day.date)} ${escapeHtml(day.weekday)}</strong>
-        <span>${escapeHtml(day.title)}</span>
-        <span>${escapeHtml(day.pass)}</span>
+        <strong>${escapeHtml(day.date.split("/")[1])}</strong>
+        <span>${escapeHtml(day.weekday)}</span>
+        <span class="day-destination">${escapeHtml(day.title)}</span>
         ${day.key === todayKey ? `<span class="today-marker">今天</span>` : ""}
       </button>`
     )
@@ -893,18 +1026,13 @@ function renderDayNav() {
 function renderDayDetail() {
   const day = getActiveDay();
   const detail = $("#dayDetail");
+  renderItineraryHeader(day);
 
   if (!state.editMode) {
     detail.innerHTML = `
-      <div class="day-heading">
-        <div>
-          <p class="eyebrow">${escapeHtml(day.date)} 星期${escapeHtml(day.weekday)}</p>
-          <h2>${escapeHtml(day.title)}</h2>
-          <p>${escapeHtml(day.summary)}</p>
-        </div>
-        ${renderDayActions(day)}
-      </div>
-      ${renderWeatherPanel(day)}
+      ${renderDayTicket(day)}
+      ${renderNextStopCard(day)}
+      ${renderScheduleHeading(day)}
       <div class="schedule">
         ${day.schedule
           .map(
@@ -913,7 +1041,7 @@ function renderDayDetail() {
               <time>${escapeHtml(time)}</time>
               <div>
                 <div>${escapeHtml(text)}</div>
-                <a class="slot-map-link" href="${escapeAttr(getScheduleMapUrl(day, text))}" target="_blank" rel="noreferrer">導航</a>
+                ${renderScheduleMapButton(day, text)}
               </div>
             </div>`
           )
@@ -927,25 +1055,19 @@ function renderDayDetail() {
       </div>
     `;
     loadWeather(day);
+    if (state.activeTab === "trip") renderTripWeather();
     return;
   }
 
   detail.innerHTML = `
-    <div class="day-heading">
-      <div>
-        <p class="eyebrow">${escapeHtml(day.date)} 星期${escapeHtml(day.weekday)}</p>
-        <h2>${escapeHtml(day.title)}</h2>
-        <p>${escapeHtml(day.summary)}</p>
-      </div>
-      ${renderDayActions(day)}
-    </div>
+    ${renderDayTicket(day)}
     <div class="edit-toolbar">
       <button class="text-button" type="button" data-add-schedule>新增行程</button>
       <button class="text-button" type="button" data-add-list="meals">新增餐廳</button>
       <button class="text-button" type="button" data-add-list="backup">新增景點/備案</button>
       <button class="text-button subtle" type="button" data-reset-day>還原本日</button>
     </div>
-    ${renderWeatherPanel(day)}
+    ${renderScheduleHeading(day)}
     <div class="schedule editable-schedule">
       ${day.schedule
         .map(
@@ -1228,6 +1350,16 @@ function renderExpenseControls() {
     $("#expenseSplit").addEventListener("change", updateExpenseOwnerVisibility);
     $("#expenseForm").addEventListener("submit", addExpense);
     $("#publicFundForm").addEventListener("submit", addPublicFundDeposit);
+    $("#expenseAddToggle").addEventListener("click", () => {
+      const panel = $("#expenseAddPanel");
+      panel.open = true;
+      $("#expenseAddToggle").setAttribute("aria-expanded", "true");
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => $("#expenseAmount").focus());
+    });
+    $("#expenseAddPanel").addEventListener("toggle", (event) => {
+      $("#expenseAddToggle").setAttribute("aria-expanded", String(event.currentTarget.open));
+    });
     $("#expenseForm").dataset.bound = "true";
   }
   updateExpenseOwnerVisibility();
@@ -1296,11 +1428,6 @@ function renderPublicFund() {
         `
       )
       .join("")}
-    <div class="public-fund-metric">
-      <span>公帳支出</span>
-      <strong>${formatYen(fund.totalExpenses)}</strong>
-      ${renderTwdEstimate(fund.totalExpenses)}
-    </div>
   `;
 
   if (fund.balance < 0) {
@@ -1508,16 +1635,50 @@ function renderExpenses() {
     payer,
     filtered.filter((expense) => expense.payer === payer).reduce((sum, expense) => sum + expense.amount, 0)
   ]);
+  const allPayerTotals = expensePayers.map((payer) => [
+    payer,
+    expenses.filter((expense) => expense.payer === payer).reduce((sum, expense) => sum + expense.amount, 0)
+  ]);
   const settlement = calculateTripSettlement(expenses);
+  const recentExpenses = expenses.slice(0, 5);
+  const recentTotal = recentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+
+  $("#expenseHeaderDate").textContent = `${activeExpenseDate || "旅行"} · JPY`;
+  $("#recentExpenseTotal").textContent = recentExpenses.length
+    ? `${recentExpenses.length} 筆 · ${formatYen(recentTotal)}`
+    : "尚無記帳";
 
   $("#expenseSummary").innerHTML = `
+    <section class="ledger-ticket" aria-label="旅行付款摘要">
+      <div class="ledger-ticket-topline"><span>TRIP LEDGER</span><span>8/13-8/19</span></div>
+      <div class="ledger-payer-grid">
+        ${allPayerTotals
+          .map(
+            ([payer, amount]) => `
+              <div><span>${escapeHtml(payer)} 已付</span><strong>${formatYen(amount)}</strong></div>
+            `
+          )
+          .join("")}
+      </div>
+      <div class="ledger-settlement">
+        ${settlement.members
+          .map(({ member, balance }) => {
+            const label = balance > 0.5 ? "結清應收" : balance < -0.5 ? "結清應付" : "已結清";
+            return `<div><span>${escapeHtml(member)} ${label}</span><strong>${formatYen(Math.abs(balance))}</strong></div>`;
+          })
+          .join("")}
+      </div>
+    </section>
+  `;
+
+  $("#expenseDetailSummary").innerHTML = `
     <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong>${renderTwdEstimate(total)}<span class="meta">這支手機上的全部記帳</span></div>
     <div class="stat"><span>目前日期</span><strong>${formatYen(activeDayTotal)}</strong>${renderTwdEstimate(activeDayTotal)}<span class="meta">${escapeHtml(activeExpenseDate || "未選日期")}</span></div>
     <div class="stat"><span>目前篩選</span><strong>${formatYen(filteredTotal)}</strong>${renderTwdEstimate(filteredTotal)}<span class="meta">${filtered.length} 筆</span></div>
-    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong>${renderTwdEstimate(groupTotal)}<span class="meta">兩人結算每人 ${formatYen(sharePerPerson)}</span></div>
+    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong>${renderTwdEstimate(groupTotal)}<span class="meta">兩人各分攤 ${formatYen(sharePerPerson)}</span></div>
     <div class="stat"><span>個人支出</span><strong>${formatYen(personalTotal)}</strong>${renderTwdEstimate(personalTotal)}<span class="meta">不分帳項目</span></div>
-    <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong>${renderTwdEstimate(publicAccountPaid)}<span class="meta">由公帳餘額扣除</span></div>
-    <div class="stat"><span>兩人結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">只計 XUN / UT 直接代付的分帳</span></div>
+    <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong>${renderTwdEstimate(publicAccountPaid)}<span class="meta">目前篩選結果</span></div>
+    <div class="stat"><span>兩人結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">只計 XUN / UT 直接代付的共同分帳</span></div>
     <div class="expense-breakdown payer-breakdown" aria-label="付款人小計">
       ${payerTotals
         .map(
@@ -1565,6 +1726,23 @@ function renderExpenses() {
         .join("")}
     </div>
   `;
+
+  $("#expenseRecentList").innerHTML = recentExpenses.length
+    ? recentExpenses
+        .map(
+          (expense) => `
+            <article class="recent-expense-item">
+              <span class="recent-expense-category">${escapeHtml(expense.category)}</span>
+              <div>
+                <strong>${escapeHtml(expense.name)}</strong>
+                <small>${escapeHtml(expense.payer)} 付 · ${expense.split ? "分帳" : "個人"}${expense.note ? ` · ${escapeHtml(expense.note)}` : ""}</small>
+              </div>
+              <b>${formatYen(expense.amount)}</b>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">還沒有記帳。點右上角加號新增第一筆支出。</p>`;
 
   $("#expenseList").innerHTML = filtered.length
     ? filtered
@@ -1733,6 +1911,20 @@ async function importLocalBackup(file) {
 
 function renderChecklist() {
   const saved = readJson(STORAGE_KEYS.checklist, {});
+  const completed = checklist.reduce((total, _item, index) => total + (saved[index] ? 1 : 0), 0);
+  const percentage = Math.round((completed / checklist.length) * 100);
+  $("#checklistProgress").innerHTML = `
+    <div class="checklist-progress-topline">
+      <span>READY TO DEPART</span>
+      <strong>2026.08.13</strong>
+    </div>
+    <div class="checklist-progress-count"><strong>${completed} / ${checklist.length}</strong></div>
+    <p>已完成 ${percentage}%</p>
+    <div class="checklist-progress-track" role="progressbar" aria-label="行前清單完成度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}">
+      <span style="width: ${percentage}%"></span>
+    </div>
+  `;
+  $("#checklistItemCount").textContent = `${checklist.length} 項`;
   $("#checklistItems").innerHTML = checklist
     .map(
       (item, index) => `
@@ -1751,38 +1943,6 @@ function renderChecklist() {
       saved[input.dataset.check] = input.checked;
       writeJson(STORAGE_KEYS.checklist, saved);
       renderChecklist();
-    });
-  });
-}
-
-function renderPhrases() {
-  $("#phraseList").innerHTML = phrases
-    .map(
-      ([zh, ja]) => `
-        <div class="phrase">
-          <div>
-            <strong>${escapeHtml(zh)}</strong>
-            <code>${escapeHtml(ja)}</code>
-          </div>
-          <button class="icon-button copy-phrase" type="button" data-copy="${escapeAttr(ja)}" aria-label="複製日文句子" title="複製">
-            <svg aria-hidden="true" viewBox="0 0 24 24">
-              <rect x="9" y="9" width="13" height="13" rx="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-          </button>
-        </div>
-      `
-    )
-    .join("");
-
-  $all(".copy-phrase").forEach((button) => {
-    button.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(button.dataset.copy);
-        button.title = "已複製";
-      } catch {
-        button.title = "瀏覽器不允許複製";
-      }
     });
   });
 }
@@ -1858,8 +2018,9 @@ function init() {
   initExchangeRate();
   renderPublicFund();
   renderExpenses();
+  renderDepartureCountdown();
   renderChecklist();
-  renderPhrases();
+  renderTripWeather();
 }
 
 init();
