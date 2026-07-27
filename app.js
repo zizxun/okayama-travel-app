@@ -4,132 +4,157 @@ const days = [
     date: "8/13",
     weekday: "四",
     title: "抵達岡山",
-    theme: "抵達、採買、蓋章",
+    theme: "抵達、飯店、永旺採買",
     pass: "未啟用",
     passCovered: false,
-    summary: "岡山機場進、岡山站西口巴士到市區。第一晚只排飯店、永旺夢樂城、Myojinmaru 和超市採買。",
+    summary: "15:05 抵達岡山機場，搭機場巴士到岡山站西口。入住後逛永旺夢樂城、吃明神丸，再到 Yours 補齊旅行用品。",
     schedule: [
+      ["11:30-15:05", "飛往岡山桃太郎機場"],
       ["15:05", "抵達岡山桃太郎機場"],
-      ["15:55 / 16:55", "搭機場巴士往岡山站西口，自費 1,000 日圓，約 30 分"],
-      ["16:25 / 17:25", "抵達岡山站西口，步行到岡山站前大和 Roynet 飯店"],
-      ["17:30", "岡山站觀光案內所蓋紀念章，拿紙本地圖"],
-      ["18:00", "永旺夢樂城岡山，晚餐 Myojinmaru 明神丸"],
-      ["20:00", "Yours 或站內超市採買水、早餐、電解質飲料"]
+      ["15:55 / 16:55", "岡山機場巴士：現場購票 ¥1,000，車程約 30 分", { mode: "機場巴士", from: "岡山桃太郎機場", to: "岡山站西口", note: "抵達大廳依現場班次搭乘" }],
+      ["16:25 / 17:25", "入住岡山站前大和 Roynet 飯店", { mode: "步行", from: "岡山站西口", to: "ダイワロイネットホテル岡山駅前", note: "先放行李再出門", travelMode: "walking" }],
+      ["17:30", "岡山站觀光案內所：看紀念章；東口交通案內所可買市電一日券"],
+      ["18:00-20:40", "永旺夢樂城岡山：逛街、明神丸晚餐、AEON 超市採買", { mode: "步行", from: "ダイワロイネットホテル岡山駅前", to: "イオンモール岡山", note: "專門店多為 21:00 打烊", travelMode: "walking" }],
+      ["20:45", "Yours 超市補買水、早餐與電解質飲料"]
     ],
-    route: ["岡山機場", "岡山站西口", "飯店", "永旺夢樂城"],
-    meals: ["Myojinmaru 明神丸", "Yours 超市", "站內便利商店"],
-    backup: ["入境較慢就搭 16:55 巴士", "太累就只吃飯和採買", "紀念章可移到 8/17"]
+    route: [
+      "永旺 1F：無印良品、AEON 超市（超市約 22:00）",
+      "永旺 2F：GAP、H&M、中川政七商店",
+      "永旺 3F：3COINS+plus、ABC-MART、三麗鷗、Village Vanguard、Disney、niko and ...、WEGO、Thank You Mart",
+      "永旺 4F：大創、Hands、蠟筆小新專賣店、UQ"
+    ],
+    meals: ["Myojinmaru 明神丸", "Yours 超市", "AEON 超市"],
+    backup: [
+      "高島屋百貨",
+      "400°C PIZZA（偏貴）",
+      "蟹道樂 岡山店",
+      "Sun Station Terrace 北館：JUMP SHOP",
+      "Sun Station Terrace 南館：松本清、Can Do、伴手禮",
+      "岡山一番街：眼鏡、服飾與小羊周邊"
+    ]
   },
   {
     key: "0814",
     date: "8/14",
     weekday: "五",
-    title: "宮島日歸",
+    title: "宮島",
     theme: "大鳥居、纜車、牡蠣",
     pass: "Pass Day 1",
     passCovered: true,
-    summary: "早出發，目標 10:30-11:30 在嚴島神社與大鳥居一帶。JR 到廣島、宮島口與 JR 宮島渡輪由 pass 覆蓋。",
+    summary: "11:00 前抵達宮島看滿潮，下午 16:48 左右看退潮。大鳥居、纜車、表參道、牡蠣與宮島限定扭蛋都是今天重點。",
     schedule: [
-      ["07:15", "飯店出門，岡山站買早餐和水"],
-      ["07:30-08:00", "岡山搭山陽新幹線往廣島，建議劃指定席"],
-      ["08:15-09:00", "廣島轉 JR 山陽本線到宮島口"],
-      ["09:30-10:20", "宮島口搭 JR 西日本宮島渡輪，船資 pass 覆蓋，訪問稅 100 日圓另付"],
-      ["10:30-11:45", "嚴島神社、大鳥居、海邊拍照"],
-      ["11:45-13:15", "表參道商店街午餐：牡蠣、穴子飯、紅葉饅頭"],
-      ["13:15-15:30", "宮島纜車與紅葉谷公園；太熱就只到獅子岩展望台"],
-      ["17:00-19:00", "回廣島站，視體力吃晚餐或直接回岡山"]
+      ["07:30", "山陽新幹線前往廣島，建議事先劃位", { mode: "JR 新幹線", from: "岡山駅", to: "広島駅", note: "周遊券涵蓋" }],
+      ["08:20", "轉 JR 山陽本線前往宮島口", { mode: "JR 在來線", from: "広島駅", to: "宮島口駅", note: "周遊券涵蓋" }],
+      ["09:30", "搭 JR 西日本宮島渡輪；紅色機台另繳訪問稅 ¥100", { mode: "JR 渡輪", from: "宮島口フェリー乗り場", to: "宮島桟橋", note: "船資由周遊券涵蓋；每人訪問稅 ¥100" }],
+      ["10:00-11:20", "嚴島神社與大鳥居：10:30 滿潮，神社門票 ¥300"],
+      ["11:30-12:50", "牡蠣或星鰻飯午餐"],
+      ["13:00", "前往紅葉谷公園；入口附近可搭免費接駁車", { mode: "步行＋接駁", from: "厳島神社", to: "宮島ロープウエー紅葉谷駅", note: "接駁約 20 分一班，或步行約 10 分", travelMode: "walking" }],
+      ["13:30-15:30", "宮島纜車往返獅子岩，成人來回 ¥2,000"],
+      ["15:40-17:10", "表參道商店街：牡蠣、紅葉饅頭、咖啡、扭蛋；16:48 低潮"],
+      ["17:20", "宮島回宮島口", { mode: "JR 渡輪", from: "宮島桟橋", to: "宮島口フェリー乗り場", note: "周遊券涵蓋" }],
+      ["18:00", "宮島口經廣島返回岡山", { mode: "JR＋新幹線", from: "宮島口駅", to: "岡山駅", note: "廣島站轉山陽新幹線" }]
     ],
     route: ["岡山", "廣島", "宮島口", "JR 宮島渡輪", "宮島"],
-    meals: ["焼がきのはやし", "牡蠣屋", "紅葉堂", "藤い屋"],
-    backup: ["取消纜車，改商店街和咖啡", "風雨時和 8/18 廣島市區交換", "潮汐時間出發前再確認"]
+    meals: ["牡蠣屋", "Mikotoya みこと屋（星鰻飯，需訂位）", "御食事処 岩むら（牡蠣定食）", "紅葉堂", "伊都岐咖啡"],
+    backup: ["豊國神社（千疊閣）與五重塔", "太熱或停駛就取消纜車，改表參道與咖啡", "風雨時與 8/18 廣島市區互換"]
   },
   {
     key: "0815",
     date: "8/15",
     weekday: "六",
     title: "姬路 + 吉備津",
-    theme: "姬路城、吉備津彥、吉備津",
+    theme: "姬路城、吉備津神社、吉備津彥神社",
     pass: "Pass Day 2",
     passCovered: true,
-    summary: "這天偏滿。早上姬路城優先，下午視體力跑吉備津兩社；熱到不舒服就只做姬路。",
+    summary: "上午走御幸通與本町商店街前往姬路城，午後回岡山轉桃太郎線，依序參拜吉備津神社與吉備津彥神社。",
     schedule: [
-      ["08:00", "岡山搭山陽新幹線往姬路，pass 覆蓋"],
-      ["09:00-11:30", "姬路城，先進天守，再看外圍"],
-      ["11:30-12:30", "姬路城周邊或姬路站午餐"],
-      ["12:30-13:30", "返回岡山"],
-      ["14:00-15:00", "JR 桃太郎線到備前一宮站，參拜吉備津彥神社"],
-      ["15:00-16:30", "JR 或短程計程車到吉備津神社"],
-      ["16:30-17:30", "回岡山站，晚上早點休息"]
+      ["08:00", "山陽新幹線前往姬路", { mode: "JR 新幹線", from: "岡山駅", to: "姫路駅", note: "周遊券涵蓋" }],
+      ["08:40-09:15", "從姬路站經御幸通、本町商店街走到姬路城", { mode: "步行", from: "姫路駅", to: "姫路城", note: "一路走商店街", travelMode: "walking" }],
+      ["09:15-11:45", "姬路城：成人 ¥2,500；姬路城＋好古園套票 ¥2,600"],
+      ["11:45-12:45", "姬路站或商店街午餐"],
+      ["13:00", "山陽新幹線返回岡山", { mode: "JR 新幹線", from: "姫路駅", to: "岡山駅", note: "周遊券涵蓋" }],
+      ["14:10", "岡山站 10 號月台搭桃太郎線到吉備津站", { mode: "JR 桃太郎線", from: "岡山駅", to: "吉備津駅", note: "10 號月台；周遊券涵蓋" }],
+      ["14:35-15:50", "吉備津站出站往左，步行前往吉備津神社"],
+      ["16:00", "吉備津站前往備前一宮站", { mode: "JR 桃太郎線", from: "吉備津駅", to: "備前一宮駅", note: "周遊券涵蓋" }],
+      ["16:15-17:15", "步行約 10 分鐘到吉備津彥神社", { mode: "步行", from: "備前一宮駅", to: "吉備津彦神社", note: "單程約 10 分鐘", travelMode: "walking" }],
+      ["17:30", "備前一宮站返回岡山", { mode: "JR 桃太郎線", from: "備前一宮駅", to: "岡山駅", note: "周遊券涵蓋" }]
     ],
-    route: ["岡山", "姬路", "岡山", "備前一宮", "吉備津"],
+    route: ["岡山", "姬路", "姬路城", "岡山", "吉備津", "備前一宮"],
     meals: ["姬路站午餐", "岡山站晚餐", "便利商店補水"],
-    backup: ["只做姬路城 + 好古園", "吉備津兩社移到 8/17 上午", "兩社之間夏天不硬走山路"]
+    backup: ["高溫或太累時姬路城優先", "吉備津兩社可移到 8/17 或取消", "想逛好古園就買 ¥2,600 套票"]
   },
   {
     key: "0816",
     date: "8/16",
     weekday: "日",
-    title: "倉敷慢遊",
+    title: "倉敷",
     theme: "美觀地區、阿智神社、Outlet",
     pass: "Pass Day 3",
     passCovered: true,
-    summary: "倉敷站南口去美觀地區，北口去 Outlet。先老街和阿智神社，午後把 Outlet 當避暑點。",
+    summary: "倉敷站南口走美觀地區與阿智神社，午後回北口 Ario 吃東西，再到 Outlet。Outlet 並非每家店都能退稅。",
     schedule: [
-      ["09:00", "岡山搭 JR 山陽本線到倉敷，pass 覆蓋"],
-      ["09:45-10:30", "阿智神社，先處理爬坡段"],
-      ["10:30-12:30", "倉敷美觀地區、白壁街道、運河、雜貨店"],
-      ["12:30-13:30", "午餐：岩むら或美觀地區附近和食"],
-      ["13:30-15:30", "大原美術館或咖啡休息"],
-      ["15:30-17:30", "回倉敷站，北口 Mitsui Outlet Park 倉敷"],
-      ["17:30-19:00", "倉敷晚餐或回岡山站吃"]
+      ["09:00", "岡山站 1、2 號月台搭山陽本線／伯備線到倉敷", { mode: "JR 在來線", from: "岡山駅", to: "倉敷駅", note: "周遊券涵蓋；到站走左側南口" }],
+      ["09:30-10:00", "南口經惠比壽商店街前往阿智神社", { mode: "步行", from: "倉敷駅南口", to: "阿智神社", note: "注意蚊蟲與階梯", travelMode: "walking" }],
+      ["10:00-12:30", "阿智神社、倉敷美觀地區、紙膠帶店與白壁街道"],
+      ["12:30-13:40", "午餐：有鄰庵生蛋拌飯配鯛魚，或岡山希少和牛店"],
+      ["13:40-15:20", "倉敷長春藤廣場與特色 Lawson；大原美術館可選配"],
+      ["15:20", "回倉敷站，穿越到右側北口", { mode: "步行", from: "倉敷美観地区", to: "アリオ倉敷", note: "先到 Ario 用餐或休息", travelMode: "walking" }],
+      ["16:00-18:20", "三井 Outlet：先到案內所拿外國旅客優惠券，再逛 Loft"],
+      ["18:30-19:30", "晚餐：回転寿司すし丸 アリオ倉敷店"],
+      ["19:40", "倉敷站返回岡山", { mode: "JR 在來線", from: "倉敷駅", to: "岡山駅", note: "山陽本線；周遊券涵蓋" }]
     ],
-    route: ["岡山", "倉敷南口", "美觀地區", "倉敷北口", "Outlet"],
-    meals: ["御食事処 岩むら", "可樂餅/炸肉餅", "倉敷布丁", "白桃甜點"],
-    backup: ["下雨就大原美術館 + 咖啡", "太熱取消阿智神社", "紅葉饅頭改在宮島或廣島買"]
+    route: ["倉敷站左側南口：老街與美觀地區", "倉敷站右側北口：Ario、Outlet", "Outlet 餐廳少，先在對面 Ario 吃", "外國旅客出示護照，先問案內所優惠券；各店退稅規則不同"],
+    meals: ["有鄰庵（生蛋拌飯配鯛魚）", "有鄰庵 岡山希少和牛店", "炸肉球小吃", "晚餐：回転寿司すし丸 アリオ倉敷店"],
+    backup: ["倉敷本町通商店街、林源十郎商店、平翠軒", "大原美術館（成人 ¥2,000）", "是否購買美觀地區漫步優惠券，到現場再決定", "太熱就縮短阿智神社"]
   },
   {
     key: "0817",
     date: "8/17",
     weekday: "一",
     title: "岡山市區",
-    theme: "後樂園、岡山城、表町",
+    theme: "岡山城、後樂園、表町",
     pass: "Pass Day 4",
     passCovered: true,
-    summary: "JR pass 還有效，但岡山市電/巴士另付。早上先後樂園避暑，再進岡山城，晚上安排壽喜燒。",
+    summary: "使用岡山市電一日券走城下、岡山城、後樂園與表町商店街，晚餐預約壽喜燒。市電與巴士不在 JR Pass 範圍。",
     schedule: [
-      ["08:00", "飯店出門，市電/巴士到後樂園或城下"],
-      ["08:30-10:00", "岡山後樂園，先走庭園和岡山城借景"],
-      ["10:00-11:30", "岡山城天守"],
-      ["11:30-12:30", "城下或後樂園周邊午餐/茶屋"],
-      ["12:30-14:30", "表町商店街、天滿屋、咖啡休息"],
-      ["14:30-16:00", "回飯店午休或補岡山站紀念章"],
-      ["晚上", "壽喜燒晚餐，需事前預約"]
+      ["08:30", "購買岡山市電一日券 ¥400"],
+      ["08:45", "岡山站前搭東山線到城下站", { mode: "岡山市電", from: "岡山駅前", to: "城下（岡山）", note: "東山線；使用一日券" }],
+      ["09:00-10:20", "岡山城天守"],
+      ["10:20-12:00", "岡山後樂園；岡山城＋後樂園共通券 ¥800"],
+      ["12:10-13:20", "午餐：司味野村豬排定食或 Uoya Taisho 魚や大将"],
+      ["13:30-16:30", "表町商店街、天滿屋、岡山木村屋、無印良品"],
+      ["16:30-17:10", "岡山神社：找蕾絲編織岡山城御守"],
+      ["17:20", "城下站返回岡山站前", { mode: "岡山市電", from: "城下（岡山）", to: "岡山駅前", note: "東山線；使用一日券" }],
+      ["晚上", "預約壽喜燒晚餐"]
     ],
-    route: ["飯店", "後樂園", "岡山城", "表町", "飯店"],
-    meals: ["壽喜燒預約", "後樂園茶屋", "表町咖啡"],
-    backup: ["下雨就岡山城 + 表町 + 天滿屋", "後樂園縮短到 60-75 分", "訂不到壽喜燒就回岡山站或永旺"]
+    route: ["岡山站前 → 城下：岡電東山線", "城下站步行到岡山城、後樂園與表町"],
+    meals: ["Uoya Taisho 魚や大将", "司味野村豬排定食", "壽喜燒（需預約）"],
+    backup: ["柳川站：麺酒一照庵 岡山本店", "下雨就縮短後樂園，改岡山城、表町與天滿屋", "訂不到壽喜燒就回岡山站或永旺"]
   },
   {
     key: "0818",
     date: "8/18",
     weekday: "二",
-    title: "廣島市區",
-    theme: "和平紀念公園、本通、伴手禮",
+    title: "廣島",
+    theme: "廣島城、和平紀念公園、本通",
     pass: "Pass Day 5",
     passCovered: true,
-    summary: "第二次往廣島，這天不再去宮島。重點是和平紀念公園與資料館，午後本通/紙屋町或廣島站 ekie。",
+    summary: "先到廣島站吃 Shake Shack，再從新白島走廣島城、護國神社、原爆圓頂屋與和平紀念公園，最後逛紙屋町、本通並吃廣島燒。",
     schedule: [
-      ["08:30", "岡山搭山陽新幹線往廣島，pass 覆蓋"],
-      ["09:15-10:00", "廣島站轉市電/巴士往和平紀念公園，多數情況另付"],
-      ["10:00-12:30", "原爆圓頂館、和平紀念公園、和平紀念資料館"],
-      ["12:30-13:30", "本通/紙屋町午餐"],
-      ["13:30-15:30", "本通商店街、紙屋町、廣島城外觀或縮景園二選一"],
-      ["15:30-17:30", "廣島站 ekie 補買紅葉饅頭和伴手禮"],
-      ["18:00-20:00", "新幹線回岡山"]
+      ["08:30", "山陽新幹線前往廣島", { mode: "JR 新幹線", from: "岡山駅", to: "広島駅", note: "周遊券最後一天；建議事先劃位" }],
+      ["09:15-10:00", "minamoa 廣島 Shake Shack（10:00 開門）"],
+      ["10:10", "廣島站搭普通電車到新白島", { mode: "JR 在來線", from: "広島駅", to: "新白島駅", note: "周遊券涵蓋" }],
+      ["10:25-12:00", "廣島城外觀、二之丸復原建築與廣島護國神社"],
+      ["12:00-12:30", "步行前往原爆圓頂屋", { mode: "步行", from: "広島城", to: "原爆ドーム", note: "沿途注意防曬補水", travelMode: "walking" }],
+      ["12:30-15:10", "原爆圓頂屋、和平紀念公園、和平紀念資料館 ¥200"],
+      ["15:20-17:20", "紙屋町百貨與本通商店街"],
+      ["17:30-19:00", "廣島燒晚餐：廣島燒村或長田屋；廣島燒村準備現金"],
+      ["19:00", "搭廣電路面電車返回廣島站", { mode: "廣電市電", from: "八丁堀（広島）", to: "広島駅", note: "另付；依晚餐位置調整上車站" }],
+      ["20:00", "山陽新幹線返回岡山", { mode: "JR 新幹線", from: "広島駅", to: "岡山駅", note: "周遊券涵蓋" }]
     ],
-    route: ["岡山", "廣島", "和平紀念公園", "本通", "廣島站"],
-    meals: ["廣島燒", "廣島站 ekie", "牡蠣備案", "紅葉饅頭"],
-    backup: ["下雨就資料館 + 本通 + 廣島站", "資料館排隊太長先走公園", "太累就取消廣島城/縮景園"]
+    route: ["廣島站 → 新白島：JR 普通電車", "新白島 → 廣島城 → 原爆圓頂屋：步行", "本通／八丁堀 → 廣島站：廣電路面電車"],
+    meals: ["SHAKE SHACK minamoa 廣島店", "牡蠣屋", "廣島燒村（整棟，準備現金）", "長田屋（廣島燒）"],
+    backup: ["廣島城天守已於 2026/3/22 永久閉館，不需購買 ¥370 門票", "下雨就資料館、本通與廣島站", "資料館排隊太長可先走公園或調整入館時間"]
   },
   {
     key: "0819",
@@ -144,7 +169,7 @@ const days = [
       ["09:00-10:30", "早餐、最後採買、退房"],
       ["10:30-12:00", "岡山站周邊輕鬆逛"],
       ["12:20", "到岡山站西口 21 號巴士站"],
-      ["12:55", "搭岡山站西口往岡山機場巴士，自費 1,000 日圓"],
+      ["12:55", "搭岡山機場巴士，自費 ¥1,000", { mode: "機場巴士", from: "岡山駅西口 21番のりば", to: "岡山桃太郎空港", note: "車程約 30 分" }],
       ["13:25", "抵達岡山機場"],
       ["15:55", "起飛"]
     ],
@@ -154,83 +179,78 @@ const days = [
   }
 ];
 
-const points = [
-  ["8/13", "岡山", "飯店", "Daiwa Roynet Hotel Okayama Ekimae", "ダイワロイネットホテル岡山駅前", "6 晚基地"],
-  ["8/13", "岡山", "交通", "岡山桃太郎機場", "岡山桃太郎空港", "機場巴士自費"],
-  ["8/13", "岡山", "交通", "岡山站西口 21 號巴士站", "岡山駅西口 21番 のりば 岡山空港", "最後一天也會用"],
-  ["8/13", "岡山", "蓋章", "岡山站觀光案內所", "岡山駅 観光案内所", "蓋紀念章與拿地圖"],
-  ["8/13", "岡山", "購物", "AEON MALL 岡山", "イオンモール岡山", "晚餐與採買"],
-  ["8/13", "岡山", "餐廳", "Myojinmaru AEON MALL 岡山", "明神丸 イオンモール岡山店", "第一晚晚餐"],
-  ["8/14", "宮島", "交通", "JR 宮島渡輪", "JR西日本宮島フェリー 宮島口", "船資 pass 覆蓋，稅另付"],
-  ["8/14", "宮島", "景點", "嚴島神社 / 大鳥居", "厳島神社 大鳥居", "目標 10:30-11:30"],
-  ["8/14", "宮島", "餐廳", "焼がきのはやし", "焼がきのはやし 宮島", "牡蠣候選"],
-  ["8/14", "宮島", "餐廳", "牡蠣屋", "牡蠣屋 宮島", "牡蠣候選"],
-  ["8/14", "宮島", "甜點", "紅葉堂", "紅葉堂 宮島", "紅葉饅頭"],
-  ["8/14", "宮島", "景點", "宮島纜車", "宮島ロープウェー 紅葉谷駅", "天候不佳就取消"],
-  ["8/15", "姬路", "景點", "姬路城", "姫路城", "無空調/樓梯陡"],
-  ["8/15", "姬路", "景點", "好古園", "好古園 姫路", "可和姬路城套票"],
-  ["8/15", "岡山", "神社", "吉備津彥神社", "吉備津彦神社", "備前一宮站附近"],
-  ["8/15", "岡山", "神社", "吉備津神社", "吉備津神社", "吉備津站附近"],
-  ["8/16", "倉敷", "景點", "倉敷美觀地區", "倉敷美観地区", "南口方向"],
-  ["8/16", "倉敷", "神社", "阿智神社", "阿智神社 倉敷", "早上先爬坡"],
-  ["8/16", "倉敷", "博物館", "大原美術館", "大原美術館", "雨天/高溫備案"],
-  ["8/16", "倉敷", "餐廳", "御食事処 岩むら", "御食事処 岩むら 倉敷", "午餐候選"],
-  ["8/16", "倉敷", "購物", "Mitsui Outlet Park 倉敷", "三井アウトレットパーク 倉敷", "北口方向"],
-  ["8/17", "岡山", "景點", "岡山後樂園", "岡山後楽園", "早上先去"],
-  ["8/17", "岡山", "景點", "岡山城", "岡山城", "與後樂園搭配"],
-  ["8/17", "岡山", "購物", "表町商店街", "岡山 表町商店街", "午後避暑"],
-  ["8/17", "岡山", "購物", "天滿屋岡山本店", "天満屋 岡山本店", "百貨與休息"],
-  ["8/17", "岡山", "餐廳", "壽喜燒候選區", "岡山駅 すき焼き 予約", "需出發前預約"],
-  ["8/18", "廣島", "景點", "原爆圓頂館", "原爆ドーム", "和平紀念公園一帶"],
-  ["8/18", "廣島", "景點", "和平紀念公園", "広島平和記念公園", "留安靜時間"],
-  ["8/18", "廣島", "博物館", "和平紀念資料館", "広島平和記念資料館", "查排隊與開館"],
-  ["8/18", "廣島", "購物", "本通商店街", "広島 本通商店街", "午餐/咖啡"],
-  ["8/18", "廣島", "購物", "ekie 廣島", "ekie 広島", "紅葉饅頭與伴手禮"],
-  ["8/19", "岡山", "交通", "岡山站西口 21 號巴士站", "岡山駅西口 21番 のりば 岡山空港", "建議 12:55 巴士"]
-];
-
 const dayMapQueries = {
   "0813": [
     ["岡山桃太郎機場", "岡山桃太郎空港"],
     ["飯店", "ダイワロイネットホテル岡山駅前"],
     ["永旺夢樂城", "イオンモール岡山"],
-    ["Yours 超市", "ユアーズ さんすて岡山店"]
+    ["Yours 超市", "ユアーズ さんすて岡山店"],
+    ["明神丸", "明神丸 イオンモール岡山店", false],
+    ["岡山高島屋", "岡山高島屋", false],
+    ["400°C PIZZA", "400°C PIZZA 岡山", false],
+    ["蟹道樂", "かに道楽 岡山店", false],
+    ["岡山一番街", "岡山一番街", false]
   ],
   "0814": [
     ["岡山站", "岡山駅"],
     ["廣島站", "広島駅"],
     ["宮島口站", "宮島口駅"],
     ["嚴島神社 / 大鳥居", "厳島神社 大鳥居"],
-    ["表參道商店街", "宮島 表参道商店街"]
+    ["宮島纜車", "宮島ロープウエー紅葉谷駅"],
+    ["表參道商店街", "宮島 表参道商店街"],
+    ["牡蠣屋", "牡蠣屋 宮島", false],
+    ["Mikotoya", "みこと屋 宮島", false],
+    ["岩村", "御食事処 岩むら 宮島", false],
+    ["紅葉堂", "紅葉堂 本店 宮島", false],
+    ["伊都岐咖啡", "伊都岐珈琲 宮島", false],
+    ["千疊閣", "豊国神社 千畳閣 宮島", false]
   ],
   "0815": [
     ["岡山站", "岡山駅"],
+    ["姬路站", "姫路駅"],
     ["姬路城", "姫路城"],
-    ["好古園", "好古園 姫路"],
+    ["吉備津神社", "吉備津神社"],
     ["吉備津彥神社", "吉備津彦神社"],
-    ["吉備津神社", "吉備津神社"]
+    ["好古園", "好古園 姫路", false]
   ],
   "0816": [
     ["倉敷站", "倉敷駅"],
     ["阿智神社", "阿智神社 倉敷"],
     ["倉敷美觀地區", "倉敷美観地区"],
-    ["岩むら", "御食事処 岩むら 倉敷"],
-    ["倉敷 Outlet", "三井アウトレットパーク 倉敷"]
+    ["長春藤廣場", "倉敷アイビースクエア"],
+    ["Ario 倉敷", "アリオ倉敷"],
+    ["倉敷 Outlet", "三井アウトレットパーク 倉敷"],
+    ["有鄰庵", "有鄰庵 倉敷", false],
+    ["すし丸 Ario 倉敷店", "回転寿司すし丸 アリオ倉敷店", false],
+    ["大原美術館", "大原美術館", false],
+    ["林源十郎商店", "林源十郎商店", false],
+    ["平翠軒", "平翠軒 倉敷", false]
   ],
   "0817": [
     ["飯店", "ダイワロイネットホテル岡山駅前"],
-    ["岡山後樂園", "岡山後楽園"],
     ["岡山城", "岡山城"],
+    ["岡山後樂園", "岡山後楽園"],
     ["表町商店街", "岡山 表町商店街"],
-    ["天滿屋", "天満屋 岡山本店"]
+    ["岡山神社", "岡山神社"],
+    ["天滿屋", "天満屋 岡山本店", false],
+    ["司味野村", "味司野村 岡山", false],
+    ["魚や大将", "魚や大将 岡山", false],
+    ["一照庵", "麺酒一照庵 岡山本店", false]
   ],
   "0818": [
     ["廣島站", "広島駅"],
+    ["新白島站", "新白島駅"],
+    ["廣島城", "広島城"],
+    ["廣島護國神社", "広島護国神社"],
     ["原爆圓頂館", "原爆ドーム"],
     ["和平紀念公園", "広島平和記念公園"],
     ["和平紀念資料館", "広島平和記念資料館"],
     ["本通商店街", "広島 本通商店街"],
-    ["ekie 廣島", "ekie 広島"]
+    ["廣島站", "広島駅"],
+    ["Shake Shack", "SHAKE SHACK minamoa広島店", false],
+    ["廣島燒村", "お好み村 広島", false],
+    ["長田屋", "長田屋 広島", false],
+    ["牡蠣屋", "牡蠣屋 広島", false]
   ],
   "0819": [
     ["飯店", "ダイワロイネットホテル岡山駅前"],
@@ -245,16 +265,19 @@ const budgetItems = [
   ["8/14", "岡山 -> 廣島 -> 宮島口", "新幹線/JR", "Pass 覆蓋", "0", "建議劃位"],
   ["8/14", "JR 宮島渡輪", "宮島口 -> 宮島", "Pass 覆蓋", "0", "訪問稅另付"],
   ["8/14", "宮島訪問稅", "渡輪入島", "另付", "100", "每人"],
-  ["8/14", "宮島纜車", "來回估算", "另付", "2500", "出發前確認"],
+  ["8/14", "嚴島神社", "神社昇殿", "另付", "300", "成人"],
+  ["8/14", "宮島纜車", "紅葉谷 - 獅子岩來回", "另付", "2000", "成人來回"],
   ["8/15", "岡山 -> 姬路", "新幹線來回", "Pass 覆蓋", "0", "建議劃位"],
   ["8/15", "姬路城", "門票", "另付", "2500", "好古園套票約 2600"],
   ["8/15", "桃太郎線", "岡山 -> 吉備津一帶", "Pass 覆蓋", "0", "熱時可搭短程計程車"],
   ["8/16", "岡山 -> 倉敷", "JR 來回", "Pass 覆蓋", "0", "山陽本線"],
   ["8/16", "大原美術館", "選配門票", "另付", "2000", "雨天/高溫備案"],
-  ["8/17", "岡山市電/巴士", "岡山站 -> 城下/後樂園", "另付", "160-300", "IC 卡或現金"],
-  ["8/17", "後樂園 + 岡山城", "套票估算", "另付", "800", "確認當日販售"],
+  ["8/17", "岡山市電一日券", "岡山站前 -> 城下", "另付", "400", "成人；JR Pass 不涵蓋"],
+  ["8/17", "後樂園 + 岡山城", "共通券", "另付", "800", "成人"],
   ["8/18", "岡山 -> 廣島", "新幹線來回", "Pass 覆蓋", "0", "Pass 最後一天"],
-  ["8/18", "廣島市內交通", "市電/巴士", "另付", "240-500", "多數情況另付"],
+  ["8/18", "廣島市內交通", "廣電市電", "另付", "240-500", "依搭乘次數"],
+  ["8/18", "和平紀念資料館", "成人門票", "另付", "200", "可先查看預約與排隊"],
+  ["8/18", "廣島城天守", "2026/3/22 起永久閉館", "外觀", "-", "外觀、二之丸可參觀"],
   ["8/19", "岡山機場巴士", "岡山站西口 -> 機場", "另付", "1000", "建議 12:55"]
 ];
 
@@ -264,17 +287,24 @@ const checklist = [
   "劃位：8/14 岡山-廣島",
   "劃位：8/15 岡山-姬路",
   "劃位：8/18 岡山-廣島",
-  "查 8/14 宮島潮汐與 JR 宮島渡輪營運",
+  "8/14 紅色機台繳宮島訪問稅 ¥100；JR 渡輪由 pass 涵蓋",
+  "確認 8/14 宮島 10:30 滿潮、16:48 低潮",
   "查宮島纜車天候與末班時間",
+  "評估是否預約 Mikotoya 星鰻飯",
+  "決定姬路城單票 ¥2,500 或好古園套票 ¥2,600",
+  "決定是否購買倉敷美觀地區漫步優惠券",
+  "帶護照領倉敷 Outlet 外國旅客優惠券",
   "預約 8/17 岡山壽喜燒晚餐",
+  "廣島燒村準備現金；廣島城天守已永久閉館",
   "把重要點位存到 Google Maps，或直接使用 App 內的景點地圖",
   "準備帽子、防曬、濕紙巾、電解質粉或鹽糖",
   "最後一天確認岡山站西口 12:55 機場巴士"
 ];
 
 const STORAGE_KEYS = {
-  itinerary: "okayamaItineraryV2",
+  itinerary: "okayamaItineraryV3",
   checklist: "okayamaChecklist",
+  shopping: "okayamaShoppingListV1",
   memo: "okayamaTripMemo",
   expenses: "okayamaExpensesV1",
   weather: "okayamaWeatherCacheV1",
@@ -670,6 +700,16 @@ function getMapSearchUrl(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+function getMapDirectionsUrl(origin, destination, travelMode = "transit") {
+  const params = new URLSearchParams({
+    api: "1",
+    origin,
+    destination,
+    travelmode: travelMode
+  });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
 function getTicketMeta(day) {
   return itineraryTicketMeta[day.key] || {
     headline: day.title,
@@ -680,9 +720,9 @@ function getTicketMeta(day) {
   };
 }
 
-function getPassDayLabel(day) {
-  const passDay = String(day.pass).match(/Day\s*(\d+)/i)?.[1];
-  return passDay ? `DAY ${passDay} / 5` : day.pass;
+function getTripDayLabel(day) {
+  const dayIndex = tripDays.findIndex((item) => item.key === day.key);
+  return `DAY ${Math.max(0, dayIndex) + 1} / ${tripDays.length}`;
 }
 
 function renderWeatherIcon() {
@@ -719,7 +759,7 @@ function renderDayTicket(day) {
     <section class="route-ticket ${day.passCovered ? "pass-valid" : "self-paid"}" aria-label="${escapeAttr(meta.from)}到${escapeAttr(meta.to)}路線票券">
       <div class="route-ticket-topline">
         <span>${day.passCovered ? "JR-WEST AREA PASS" : "TRIP ROUTE"}</span>
-        <span>${escapeHtml(getPassDayLabel(day))}</span>
+        <span>${escapeHtml(getTripDayLabel(day))}</span>
       </div>
       <div class="route-ticket-route">
         <div><strong>${escapeHtml(meta.from)}</strong><small>${escapeHtml(meta.fromEn)}</small></div>
@@ -750,9 +790,10 @@ function renderNextStopCard(day) {
   `;
 }
 
-function renderScheduleMapButton(day, text) {
+function renderScheduleMapButton(day, text, transport) {
+  const mapLabel = transport?.from && transport?.to ? `${transport.from}到${transport.to}` : text;
   return `
-    <a class="slot-map-link" href="${escapeAttr(getScheduleMapUrl(day, text))}" target="_blank" rel="noreferrer" aria-label="導航到${escapeAttr(text)}" title="景點地圖">
+    <a class="slot-map-link" href="${escapeAttr(getScheduleMapUrl(day, text, transport))}" target="_blank" rel="noreferrer" aria-label="導航${escapeAttr(mapLabel)}" title="${transport ? "交通導航" : "景點地圖"}">
       <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m9 18-6 3V6l6-3 6 3 6-3v15l-6 3-6-3Z" /><path d="M9 3v15M15 6v15" /></svg>
     </a>
   `;
@@ -768,7 +809,9 @@ function renderScheduleHeading(day) {
 }
 
 function getDayRouteUrl(day) {
-  const stops = (dayMapQueries[day.key] || [[day.title, day.title]]).map((item) => item[1]);
+  const stops = (dayMapQueries[day.key] || [[day.title, day.title]])
+    .filter((item) => item[2] !== false)
+    .map((item) => item[1]);
   if (stops.length <= 1) return getMapSearchUrl(stops[0]);
 
   const origin = stops[0];
@@ -804,7 +847,10 @@ function getScheduleSearchQuery(day, text) {
   return `${cleanText} ${day.title}`.trim();
 }
 
-function getScheduleMapUrl(day, text) {
+function getScheduleMapUrl(day, text, transport) {
+  if (transport?.from && transport?.to) {
+    return getMapDirectionsUrl(transport.from, transport.to, transport.travelMode || "transit");
+  }
   return getMapSearchUrl(getScheduleSearchQuery(day, text));
 }
 
@@ -818,7 +864,7 @@ function getNextScheduleStop(day) {
   const fallback = day.schedule[0] || ["", day.title];
   const isToday = getTripIsoDate(day) === getTodayIsoDate();
   if (!isToday) {
-    return { index: 0, text: fallback[1], url: getScheduleMapUrl(day, fallback[1]) };
+    return { index: 0, text: fallback[1], url: getScheduleMapUrl(day, fallback[1], fallback[2]) };
   }
 
   const now = new Date();
@@ -829,7 +875,7 @@ function getNextScheduleStop(day) {
   });
   const scheduleIndex = index >= 0 ? index : Math.max(0, day.schedule.length - 1);
   const item = day.schedule[scheduleIndex] || fallback;
-  return { index: scheduleIndex, text: item[1], url: getScheduleMapUrl(day, item[1]) };
+  return { index: scheduleIndex, text: item[1], url: getScheduleMapUrl(day, item[1], item[2]) };
 }
 
 function renderDayMapLinks(day) {
@@ -1023,6 +1069,46 @@ function renderDayNav() {
   });
 }
 
+function renderScheduleCopy(text, transport) {
+  if (!transport) return `<div class="schedule-copy">${escapeHtml(text)}</div>`;
+
+  return `
+    <div class="transport-copy">
+      <div class="transport-heading">
+        <span class="transport-mode">${escapeHtml(transport.mode || "交通")}</span>
+        <strong>${escapeHtml(transport.from || "")}<span aria-hidden="true"> → </span>${escapeHtml(transport.to || "")}</strong>
+      </div>
+      <span>${escapeHtml(text)}</span>
+      ${transport.note ? `<small>${escapeHtml(transport.note)}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderTransportEditor(transport, index) {
+  if (!transport) return "";
+
+  return `
+    <div class="transport-editor">
+      <label>
+        <span>交通種類</span>
+        <input type="text" value="${escapeAttr(transport.mode || "")}" data-schedule-transport="mode" data-index="${index}" />
+      </label>
+      <label>
+        <span>上車／起點</span>
+        <input type="text" value="${escapeAttr(transport.from || "")}" data-schedule-transport="from" data-index="${index}" />
+      </label>
+      <label>
+        <span>下車／終點</span>
+        <input type="text" value="${escapeAttr(transport.to || "")}" data-schedule-transport="to" data-index="${index}" />
+      </label>
+      <label class="transport-note-field">
+        <span>月台／轉乘提醒</span>
+        <input type="text" value="${escapeAttr(transport.note || "")}" data-schedule-transport="note" data-index="${index}" />
+      </label>
+    </div>
+  `;
+}
+
 function renderDayDetail() {
   const day = getActiveDay();
   const detail = $("#dayDetail");
@@ -1036,12 +1122,12 @@ function renderDayDetail() {
       <div class="schedule">
         ${day.schedule
           .map(
-            ([time, text], index) => `
+            ([time, text, transport], index) => `
             <div class="slot ${index === getNextScheduleStop(day).index ? "next-slot" : ""}">
               <time>${escapeHtml(time)}</time>
-              <div>
-                <div>${escapeHtml(text)}</div>
-                ${renderScheduleMapButton(day, text)}
+              <div class="slot-main">
+                ${renderScheduleCopy(text, transport)}
+                ${renderScheduleMapButton(day, text, transport)}
               </div>
             </div>`
           )
@@ -1071,7 +1157,7 @@ function renderDayDetail() {
     <div class="schedule editable-schedule">
       ${day.schedule
         .map(
-          ([time, text], index) => `
+          ([time, text, transport], index) => `
           <div class="slot editable-slot" data-schedule-row="${index}">
             <div class="slot-fields">
               <label>
@@ -1082,6 +1168,7 @@ function renderDayDetail() {
                 <span>內容</span>
                 <textarea class="item-input" rows="2" data-schedule-field="text" data-index="${index}">${escapeHtml(text)}</textarea>
               </label>
+              ${renderTransportEditor(transport, index)}
             </div>
             <div class="row-actions">
               ${renderMoveButton("schedule", index, -1, "上移", index === 0)}
@@ -1183,6 +1270,16 @@ function bindDayEditor(day) {
     });
   });
 
+  detail.querySelectorAll("[data-schedule-transport]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const index = Number(input.dataset.index);
+      const field = input.dataset.scheduleTransport;
+      if (!day.schedule[index][2]) day.schedule[index][2] = {};
+      day.schedule[index][2][field] = input.value;
+      saveTripDays();
+    });
+  });
+
   detail.querySelectorAll("[data-delete-schedule]").forEach((button) => {
     button.addEventListener("click", () => {
       if (!confirm("刪除這個行程項目？")) return;
@@ -1244,44 +1341,84 @@ function bindDayEditor(day) {
   });
 }
 
-function renderFilters() {
-  const dayFilter = $("#pointDayFilter");
-  const categoryFilter = $("#pointCategoryFilter");
-  const dayOptions = ["全部", ...new Set(points.map((point) => point[0]))];
-  const categoryOptions = ["全部", ...new Set(points.map((point) => point[2]))];
-
-  dayFilter.innerHTML = dayOptions.map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join("");
-  categoryFilter.innerHTML = categoryOptions.map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join("");
-  if (dayFilter.dataset.bound !== "true") {
-    dayFilter.addEventListener("change", renderPoints);
-    categoryFilter.addEventListener("change", renderPoints);
-    dayFilter.dataset.bound = "true";
-  }
+function loadShoppingList() {
+  const saved = readJson(STORAGE_KEYS.shopping, []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .map((item, index) => {
+      if (typeof item === "string") {
+        return { id: `legacy-${index}`, name: item.trim(), done: false };
+      }
+      return {
+        id: String(item?.id || `item-${index}`),
+        name: String(item?.name || "").trim(),
+        done: Boolean(item?.done)
+      };
+    })
+    .filter((item) => item.name);
 }
 
-function renderPoints() {
-  const selectedDay = $("#pointDayFilter").value;
-  const selectedCategory = $("#pointCategoryFilter").value;
-  const filtered = points.filter((point) => {
-    const dayMatch = selectedDay === "全部" || point[0] === selectedDay;
-    const categoryMatch = selectedCategory === "全部" || point[2] === selectedCategory;
-    return dayMatch && categoryMatch;
+function saveShoppingList(items) {
+  writeJson(STORAGE_KEYS.shopping, items);
+}
+
+function renderShoppingList() {
+  const items = loadShoppingList();
+  const completed = items.filter((item) => item.done).length;
+  $("#shoppingCount").textContent = `${items.length} 項 · 已買 ${completed}`;
+  $("#shoppingList").innerHTML = items.length
+    ? items
+        .map(
+          (item) => `
+            <article class="shopping-item ${item.done ? "done" : ""}">
+              <label>
+                <input type="checkbox" data-shopping-check="${escapeAttr(item.id)}" ${item.done ? "checked" : ""} />
+                <span>${escapeHtml(item.name)}</span>
+              </label>
+              <button class="shopping-delete" type="button" data-shopping-delete="${escapeAttr(item.id)}" aria-label="刪除 ${escapeAttr(item.name)}" title="刪除">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </article>
+          `
+        )
+        .join("")
+    : `<p class="empty-state">還沒有項目，先加入想買的伴手禮或用品。</p>`;
+
+  $all("[data-shopping-check]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const updated = loadShoppingList();
+      const item = updated.find((entry) => entry.id === input.dataset.shoppingCheck);
+      if (!item) return;
+      item.done = input.checked;
+      saveShoppingList(updated);
+      renderShoppingList();
+    });
   });
 
-  $("#pointList").innerHTML = filtered
-    .map(([date, area, category, name, query, note]) => {
-      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-      return `
-        <article class="point-item">
-          <div>
-            <h3>${escapeHtml(name)}</h3>
-            <div class="meta">${escapeHtml(date)} · ${escapeHtml(area)} · ${escapeHtml(category)}<br>${escapeHtml(note)}</div>
-          </div>
-          <a class="map-link" href="${mapsUrl}" target="_blank" rel="noreferrer" aria-label="在 Google Maps 開啟 ${escapeAttr(name)}" title="開啟地圖">↗</a>
-        </article>
-      `;
-    })
-    .join("");
+  $all("[data-shopping-delete]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const updated = loadShoppingList().filter((item) => item.id !== button.dataset.shoppingDelete);
+      saveShoppingList(updated);
+      renderShoppingList();
+    });
+  });
+}
+
+function addShoppingItem(event) {
+  event.preventDefault();
+  const input = $("#shoppingItemInput");
+  const name = input.value.trim();
+  if (!name) return;
+  const items = loadShoppingList();
+  items.push({
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name,
+    done: false
+  });
+  saveShoppingList(items);
+  input.value = "";
+  renderShoppingList();
+  input.focus();
 }
 
 function renderBudget() {
@@ -1300,7 +1437,7 @@ function renderBudget() {
             <h3>${escapeHtml(item)}</h3>
             <div class="meta">${escapeHtml(route)}<br>${escapeHtml(note)}</div>
           </div>
-          <div class="money">${amount === "0" ? "Pass" : `¥${escapeHtml(amount)}`}</div>
+          <div class="money">${amount === "0" ? "Pass" : amount === "-" ? "—" : `¥${escapeHtml(amount)}`}</div>
         </article>
       `
     )
@@ -1843,11 +1980,12 @@ function exportExpensesCsv() {
 function buildLocalBackup() {
   return {
     app: "okayama-travel-app",
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     data: {
       itinerary: tripDays,
       checklist: readJson(STORAGE_KEYS.checklist, {}),
+      shopping: loadShoppingList(),
       memo: localStorage.getItem(STORAGE_KEYS.memo) || "",
       expenses: loadExpenses(),
       exchangeRate: exchangeRateSettings,
@@ -1869,6 +2007,7 @@ function restoreLocalBackup(backup) {
 
   writeJson(STORAGE_KEYS.itinerary, data.itinerary);
   writeJson(STORAGE_KEYS.checklist, data.checklist || {});
+  writeJson(STORAGE_KEYS.shopping, Array.isArray(data.shopping) ? data.shopping : []);
   localStorage.setItem(STORAGE_KEYS.memo, String(data.memo || ""));
   writeJson(STORAGE_KEYS.expenses, data.expenses);
   writeJson(STORAGE_KEYS.publicFund, Array.isArray(data.publicFund) ? data.publicFund : []);
@@ -1885,8 +2024,7 @@ function restoreLocalBackup(backup) {
   if (memo) memo.value = localStorage.getItem(STORAGE_KEYS.memo) || "";
   renderDayNav();
   renderDayDetail();
-  renderFilters();
-  renderPoints();
+  renderShoppingList();
   renderExpenseControls();
   renderExchangeRatePanel();
   renderPublicFund();
@@ -1960,6 +2098,7 @@ async function clearLocalData() {
   if (!confirm("清除這支手機上的行程修改、記帳、公帳、清單勾選與離線快取？")) return;
   localStorage.removeItem(STORAGE_KEYS.itinerary);
   localStorage.removeItem(STORAGE_KEYS.checklist);
+  localStorage.removeItem(STORAGE_KEYS.shopping);
   localStorage.removeItem(STORAGE_KEYS.memo);
   localStorage.removeItem(STORAGE_KEYS.expenses);
   localStorage.removeItem(STORAGE_KEYS.weather);
@@ -1977,6 +2116,7 @@ async function clearLocalData() {
   if (memo) memo.value = "";
   renderDayNav();
   renderDayDetail();
+  renderShoppingList();
   renderExchangeRatePanel();
   renderPublicFund();
   renderExpenses();
@@ -2006,13 +2146,13 @@ function init() {
   $("#exportBackup").addEventListener("click", exportLocalBackup);
   $("#importBackup").addEventListener("click", () => $("#backupFileInput").click());
   $("#backupFileInput").addEventListener("change", (event) => importLocalBackup(event.target.files?.[0]));
+  $("#shoppingForm").addEventListener("submit", addShoppingItem);
 
   renderDayNav();
   syncEditButton();
   initTripMemo();
   renderDayDetail();
-  renderFilters();
-  renderPoints();
+  renderShoppingList();
   renderBudget();
   renderExpenseControls();
   initExchangeRate();
