@@ -281,30 +281,19 @@ const budgetItems = [
   ["8/19", "岡山機場巴士", "岡山站西口 -> 機場", "另付", "1000", "建議 12:55"]
 ];
 
-const checklist = [
-  "護照、JR-WEST pass 兌換資料、付款信用卡放進小包",
-  "確認 pass 啟用日為 2026/8/14",
-  "劃位：8/14 岡山-廣島",
-  "劃位：8/15 岡山-姬路",
-  "劃位：8/18 岡山-廣島",
-  "8/14 紅色機台繳宮島訪問稅 ¥100；JR 渡輪由 pass 涵蓋",
-  "確認 8/14 宮島 10:30 滿潮、16:48 低潮",
-  "查宮島纜車天候與末班時間",
-  "評估是否預約 Mikotoya 星鰻飯",
-  "決定姬路城單票 ¥2,500 或好古園套票 ¥2,600",
-  "決定是否購買倉敷美觀地區漫步優惠券",
-  "帶護照領倉敷 Outlet 外國旅客優惠券",
-  "預約 8/17 岡山壽喜燒晚餐",
-  "廣島燒村準備現金；廣島城天守已永久閉館",
-  "把重要點位存到 Google Maps，或直接使用 App 內的景點地圖",
-  "準備帽子、防曬、濕紙巾、電解質粉或鹽糖",
-  "最後一天確認岡山站西口 12:55 機場巴士"
+const bundledShoppingItems = [
+  {
+    id: "bundled-forest-family",
+    name: "森林探險家族",
+    image: "./assets/shopping/forest-family.jpg"
+  }
 ];
 
 const STORAGE_KEYS = {
   itinerary: "okayamaItineraryV3",
   checklist: "okayamaChecklist",
   shopping: "okayamaShoppingListV1",
+  shoppingSeed: "okayamaShoppingSeedV2",
   memo: "okayamaTripMemo",
   expenses: "okayamaExpensesV1",
   weather: "okayamaWeatherCacheV1",
@@ -376,7 +365,8 @@ let exchangeRateRequestStatus = "idle";
 const state = {
   activeDay: getInitialActiveDayKey(),
   activeTab: "itinerary",
-  editMode: false
+  editMode: false,
+  expandedShoppingImages: new Set()
 };
 
 function $(selector) {
@@ -609,31 +599,6 @@ function getTripIsoDate(day) {
 function getTodayIsoDate() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-}
-
-function renderDepartureCountdown() {
-  const output = $("#departureCountdown");
-  if (!output) return;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tripStart = new Date(TRIP_YEAR, 7, 13);
-  const tripEnd = new Date(TRIP_YEAR, 7, 19);
-  const dayMs = 24 * 60 * 60 * 1000;
-
-  if (today < tripStart) {
-    const days = Math.round((tripStart - today) / dayMs);
-    output.textContent = `Departure · ${days} day${days === 1 ? "" : "s"}`;
-    return;
-  }
-
-  if (today <= tripEnd) {
-    const tripDay = Math.floor((today - tripStart) / dayMs) + 1;
-    output.textContent = `Trip · Day ${tripDay} / 7`;
-    return;
-  }
-
-  output.textContent = "Trip · Complete";
 }
 
 function getTodayTripDayKey() {
@@ -1344,42 +1309,107 @@ function bindDayEditor(day) {
 function loadShoppingList() {
   const saved = readJson(STORAGE_KEYS.shopping, []);
   if (!Array.isArray(saved)) return [];
-  return saved
+  const items = saved
     .map((item, index) => {
       if (typeof item === "string") {
-        return { id: `legacy-${index}`, name: item.trim(), done: false };
+        return { id: `legacy-${index}`, name: item.trim(), done: false, image: "" };
       }
+      const image = String(item?.image || "");
       return {
         id: String(item?.id || `item-${index}`),
         name: String(item?.name || "").trim(),
-        done: Boolean(item?.done)
+        done: Boolean(item?.done),
+        image: image.startsWith("./assets/shopping/") ? image : ""
       };
     })
     .filter((item) => item.name);
+
+  if (localStorage.getItem(STORAGE_KEYS.shoppingSeed) !== "1") {
+    [...bundledShoppingItems].reverse().forEach((bundledItem) => {
+      const exists = items.some((item) => item.id === bundledItem.id || item.name === bundledItem.name);
+      if (!exists) items.unshift({ ...bundledItem, done: false });
+    });
+    saveShoppingList(items);
+    localStorage.setItem(STORAGE_KEYS.shoppingSeed, "1");
+  }
+
+  return items;
 }
 
 function saveShoppingList(items) {
   writeJson(STORAGE_KEYS.shopping, items);
 }
 
+function getWalletStatus(percentage, itemCount) {
+  if (!itemCount) return "購物雷達目前一片寧靜";
+  if (percentage === 0) return "錢包目前平安無事";
+  if (percentage < 40) return "錢包開始感受到壓力";
+  if (percentage < 70) return "錢包正在快速變薄";
+  if (percentage < 100) return "錢包只剩最後一口氣";
+  return "錢包已光榮完成任務";
+}
+
+function renderShoppingProgress(items, completed) {
+  const percentage = items.length ? Math.round((completed / items.length) * 100) : 0;
+  $("#shoppingProgress").innerHTML = `
+    <div class="wallet-progress-topline">
+      <span>WALLET STATUS</span>
+      <strong>${percentage}%</strong>
+    </div>
+    <div class="wallet-progress-title">
+      <strong>錢包枯竭度</strong>
+      <span>${completed} / ${items.length}</span>
+    </div>
+    <p>${getWalletStatus(percentage, items.length)}</p>
+    <div class="wallet-progress-track" role="progressbar" aria-label="錢包枯竭度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}">
+      <span style="width: ${percentage}%"></span>
+    </div>
+  `;
+}
+
 function renderShoppingList() {
   const items = loadShoppingList();
   const completed = items.filter((item) => item.done).length;
+  renderShoppingProgress(items, completed);
   $("#shoppingCount").textContent = `${items.length} 項 · 已買 ${completed}`;
   $("#shoppingList").innerHTML = items.length
     ? items
         .map(
-          (item) => `
+          (item) => {
+            const hasImage = Boolean(item.image);
+            const expanded = hasImage && state.expandedShoppingImages.has(item.id);
+            return `
             <article class="shopping-item ${item.done ? "done" : ""}">
-              <label>
-                <input type="checkbox" data-shopping-check="${escapeAttr(item.id)}" ${item.done ? "checked" : ""} />
-                <span>${escapeHtml(item.name)}</span>
-              </label>
-              <button class="shopping-delete" type="button" data-shopping-delete="${escapeAttr(item.id)}" aria-label="刪除 ${escapeAttr(item.name)}" title="刪除">
-                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
-              </button>
+              <div class="shopping-item-row ${hasImage ? "has-image" : ""}">
+                <label>
+                  <input type="checkbox" data-shopping-check="${escapeAttr(item.id)}" ${item.done ? "checked" : ""} />
+                  <span>${escapeHtml(item.name)}</span>
+                </label>
+                ${
+                  hasImage
+                    ? `
+                      <button class="shopping-image-toggle" type="button" data-shopping-image-toggle="${escapeAttr(item.id)}" aria-expanded="${expanded}" aria-controls="shopping-image-${escapeAttr(item.id)}" aria-label="${expanded ? "收合" : "展開"} ${escapeAttr(item.name)}圖片" title="${expanded ? "收合圖片" : "查看圖片"}">
+                        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4" /></svg>
+                      </button>
+                    `
+                    : ""
+                }
+                <button class="shopping-delete" type="button" data-shopping-delete="${escapeAttr(item.id)}" aria-label="刪除 ${escapeAttr(item.name)}" title="刪除">
+                  <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                </button>
+              </div>
+              ${
+                hasImage
+                  ? `
+                    <div class="shopping-image-panel" id="shopping-image-${escapeAttr(item.id)}" ${expanded ? "" : "hidden"}>
+                      <img src="${escapeAttr(item.image)}" alt="${escapeAttr(item.name)}參考圖片" loading="lazy" />
+                    </div>
+                  `
+                  : ""
+              }
             </article>
-          `
+          `;
+          }
         )
         .join("")
     : `<p class="empty-state">還沒有項目，先加入想買的伴手禮或用品。</p>`;
@@ -1397,9 +1427,28 @@ function renderShoppingList() {
 
   $all("[data-shopping-delete]").forEach((button) => {
     button.addEventListener("click", () => {
+      state.expandedShoppingImages.delete(button.dataset.shoppingDelete);
       const updated = loadShoppingList().filter((item) => item.id !== button.dataset.shoppingDelete);
       saveShoppingList(updated);
       renderShoppingList();
+    });
+  });
+
+  $all("[data-shopping-image-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const itemId = button.dataset.shoppingImageToggle;
+      const panel = document.getElementById(`shopping-image-${itemId}`);
+      if (!panel) return;
+      const expanded = button.getAttribute("aria-expanded") !== "true";
+      button.setAttribute("aria-expanded", String(expanded));
+      button.setAttribute("aria-label", `${expanded ? "收合" : "展開"}圖片`);
+      button.setAttribute("title", expanded ? "收合圖片" : "查看圖片");
+      panel.hidden = !expanded;
+      if (expanded) {
+        state.expandedShoppingImages.add(itemId);
+      } else {
+        state.expandedShoppingImages.delete(itemId);
+      }
     });
   });
 }
@@ -1413,7 +1462,8 @@ function addShoppingItem(event) {
   items.push({
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name,
-    done: false
+    done: false,
+    image: ""
   });
   saveShoppingList(items);
   input.value = "";
@@ -1430,9 +1480,9 @@ function renderBudget() {
 
   $("#budgetList").innerHTML = budgetItems
     .map(
-      ([date, item, route, status, amount, note]) => `
+      ([date, item, route, _status, amount, note]) => `
         <article class="budget-item">
-          <div><strong>${escapeHtml(date)}</strong><div class="meta">${escapeHtml(status)}</div></div>
+          <div><strong>${escapeHtml(date)}</strong></div>
           <div>
             <h3>${escapeHtml(item)}</h3>
             <div class="meta">${escapeHtml(route)}<br>${escapeHtml(note)}</div>
@@ -1980,7 +2030,7 @@ function exportExpensesCsv() {
 function buildLocalBackup() {
   return {
     app: "okayama-travel-app",
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     data: {
       itinerary: tripDays,
@@ -2029,7 +2079,6 @@ function restoreLocalBackup(backup) {
   renderExchangeRatePanel();
   renderPublicFund();
   renderExpenses();
-  renderChecklist();
   fetchExchangeRate();
 }
 
@@ -2037,7 +2086,7 @@ async function importLocalBackup(file) {
   if (!file) return;
   try {
     const backup = JSON.parse(await file.text());
-    if (!confirm("匯入備份會覆蓋這支手機目前的行程修改、記帳、公帳、清單與備忘錄，要繼續嗎？")) return;
+    if (!confirm("匯入備份會覆蓋這支手機目前的行程修改、記帳、公帳、購物清單與備忘錄，要繼續嗎？")) return;
     restoreLocalBackup(backup);
     alert("備份已匯入。");
   } catch {
@@ -2045,44 +2094,6 @@ async function importLocalBackup(file) {
   } finally {
     $("#backupFileInput").value = "";
   }
-}
-
-function renderChecklist() {
-  const saved = readJson(STORAGE_KEYS.checklist, {});
-  const completed = checklist.reduce((total, _item, index) => total + (saved[index] ? 1 : 0), 0);
-  const percentage = Math.round((completed / checklist.length) * 100);
-  $("#checklistProgress").innerHTML = `
-    <div class="checklist-progress-topline">
-      <span>READY TO DEPART</span>
-      <strong>2026.08.13</strong>
-    </div>
-    <div class="checklist-progress-count"><strong>${completed} / ${checklist.length}</strong></div>
-    <p>已完成 ${percentage}%</p>
-    <div class="checklist-progress-track" role="progressbar" aria-label="行前清單完成度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}">
-      <span style="width: ${percentage}%"></span>
-    </div>
-  `;
-  $("#checklistItemCount").textContent = `${checklist.length} 項`;
-  $("#checklistItems").innerHTML = checklist
-    .map(
-      (item, index) => `
-        <article class="check-item ${saved[index] ? "done" : ""}">
-          <label>
-            <input type="checkbox" data-check="${index}" ${saved[index] ? "checked" : ""} />
-            <span>${escapeHtml(item)}</span>
-          </label>
-        </article>
-      `
-    )
-    .join("");
-
-  $("#checklistItems").querySelectorAll("input").forEach((input) => {
-    input.addEventListener("change", () => {
-      saved[input.dataset.check] = input.checked;
-      writeJson(STORAGE_KEYS.checklist, saved);
-      renderChecklist();
-    });
-  });
 }
 
 function initTripMemo() {
@@ -2095,10 +2106,11 @@ function initTripMemo() {
 }
 
 async function clearLocalData() {
-  if (!confirm("清除這支手機上的行程修改、記帳、公帳、清單勾選與離線快取？")) return;
+  if (!confirm("清除這支手機上的行程修改、記帳、公帳、購物清單與離線快取？")) return;
   localStorage.removeItem(STORAGE_KEYS.itinerary);
   localStorage.removeItem(STORAGE_KEYS.checklist);
   localStorage.removeItem(STORAGE_KEYS.shopping);
+  localStorage.removeItem(STORAGE_KEYS.shoppingSeed);
   localStorage.removeItem(STORAGE_KEYS.memo);
   localStorage.removeItem(STORAGE_KEYS.expenses);
   localStorage.removeItem(STORAGE_KEYS.weather);
@@ -2120,7 +2132,6 @@ async function clearLocalData() {
   renderExchangeRatePanel();
   renderPublicFund();
   renderExpenses();
-  renderChecklist();
   fetchExchangeRate(true);
 }
 
@@ -2136,10 +2147,6 @@ function init() {
     state.editMode = !state.editMode;
     syncEditButton();
     renderDayDetail();
-  });
-  $("#resetChecklist").addEventListener("click", () => {
-    localStorage.removeItem(STORAGE_KEYS.checklist);
-    renderChecklist();
   });
   $("#clearLocalData").addEventListener("click", clearLocalData);
   $("#exportExpensesCsv").addEventListener("click", exportExpensesCsv);
@@ -2158,8 +2165,6 @@ function init() {
   initExchangeRate();
   renderPublicFund();
   renderExpenses();
-  renderDepartureCountdown();
-  renderChecklist();
   renderTripWeather();
 }
 

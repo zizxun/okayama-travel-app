@@ -122,6 +122,7 @@ summary:focus-visible {
 }
 
 .tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   top: 0;
   gap: 4px;
   margin: 8px 0 16px;
@@ -544,6 +545,68 @@ summary:focus-visible {
 }
 
 /* Shopping */
+.wallet-progress {
+  margin-bottom: 12px;
+  padding: 14px 15px 13px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--ticket);
+}
+
+.wallet-progress-topline,
+.wallet-progress-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wallet-progress-topline {
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.wallet-progress-topline strong {
+  color: var(--yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-progress-title {
+  margin-top: 9px;
+}
+
+.wallet-progress-title strong {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.wallet-progress-title span {
+  color: var(--ticket-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-progress p {
+  margin: 4px 0 9px;
+  color: var(--ticket-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.wallet-progress-track {
+  height: 7px;
+  overflow: hidden;
+  background: #496862;
+}
+
+.wallet-progress-track span {
+  height: 100%;
+  display: block;
+  background: var(--yellow);
+  transition: width 200ms ease-out;
+}
+
 .shopping-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -573,7 +636,8 @@ summary:focus-visible {
 }
 
 .shopping-form .primary-action svg,
-.shopping-delete svg {
+.shopping-delete svg,
+.shopping-image-toggle svg {
   width: 19px;
   height: 19px;
   fill: none;
@@ -611,14 +675,22 @@ summary:focus-visible {
 
 .shopping-item {
   min-height: 64px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  gap: 10px;
-  align-items: center;
   padding: 9px 10px 9px 13px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
+}
+
+.shopping-item-row {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.shopping-item-row.has-image {
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
 }
 
 .shopping-item label {
@@ -663,6 +735,47 @@ summary:focus-visible {
   cursor: pointer;
 }
 
+.shopping-image-toggle {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--teal);
+  background: var(--teal-soft);
+  cursor: pointer;
+}
+
+.shopping-image-toggle svg {
+  transition: transform 160ms ease;
+}
+
+.shopping-image-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.shopping-image-panel {
+  margin: 9px 0 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.shopping-image-panel[hidden] {
+  display: none;
+}
+
+.shopping-image-panel img {
+  width: 100%;
+  max-height: 360px;
+  display: block;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #eef1ed;
+}
+
+.shopping-image-toggle:focus-visible,
 .shopping-delete:focus-visible {
   outline: 3px solid rgba(25, 109, 97, 0.28);
   outline-offset: 1px;
@@ -1197,6 +1310,136 @@ summary:focus-visible {
   transform: rotate(180deg);
 }
 
+.trip-accordion {
+  margin: 0 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.trip-accordion > summary {
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 36px;
+  gap: 11px;
+  align-items: center;
+  padding: 12px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.trip-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.trip-accordion > summary {
+  color: var(--ink);
+  background: #ffffff;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.trip-accordion .trip-timetable-icon {
+  color: var(--teal);
+  border-color: #bfd2cd;
+  background: var(--teal-soft);
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+
+.trip-accordion .trip-timetable-summary .eyebrow {
+  color: var(--vermilion);
+}
+
+.trip-accordion .trip-timetable-summary strong {
+  color: var(--ink);
+}
+
+.trip-accordion .trip-timetable-summary small {
+  color: var(--muted);
+}
+
+.trip-accordion .trip-timetable-chevron {
+  color: var(--teal);
+}
+
+.trip-accordion[open] {
+  border-color: #29453f;
+}
+
+.trip-accordion[open] > summary {
+  color: #ffffff;
+  background: var(--ticket);
+}
+
+.trip-accordion[open] .trip-timetable-icon {
+  color: var(--yellow);
+  border-color: #58736d;
+  background: transparent;
+}
+
+.trip-accordion[open] .trip-timetable-summary .eyebrow {
+  color: var(--yellow);
+}
+
+.trip-accordion[open] .trip-timetable-summary strong {
+  color: #ffffff;
+}
+
+.trip-accordion[open] .trip-timetable-summary small {
+  color: var(--ticket-muted);
+}
+
+.trip-accordion[open] .trip-timetable-chevron {
+  color: #ffffff;
+  transform: rotate(180deg);
+}
+
+.trip-accordion-content {
+  padding: 13px;
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.trip-link-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.trip-link-content p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.trip-external-link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--teal);
+}
+
+.trip-external-link svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trip-weather-content .weather-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #ffffff;
+  box-shadow: none;
+}
+
 .trip-timetable-content {
   padding: 0 13px 13px;
   border-top: 1px solid var(--line);
@@ -1275,7 +1518,7 @@ summary:focus-visible {
   text-decoration: none;
 }
 
-.trip-timetable > summary:focus-visible,
+.trip-accordion > summary:focus-visible,
 .timetable-row a:focus-visible {
   outline: 3px solid rgba(25, 109, 97, 0.25);
   outline-offset: -3px;
@@ -1292,6 +1535,11 @@ summary:focus-visible {
 
 .flight-list {
   gap: 8px;
+}
+
+.trip-flight-content {
+  display: grid;
+  gap: 14px;
 }
 
 .flight-card {
@@ -1385,8 +1633,60 @@ summary:focus-visible {
   background: #eef5f2;
 }
 
+.pass-map-content {
+  margin: 0;
+}
+
+.pass-map-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.pass-map-content img {
+  width: 100%;
+  max-height: 430px;
+  display: block;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #eef5f2;
+}
+
+.pass-map-content figcaption {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
 .trip-budget {
   margin-top: 14px;
+}
+
+.trip-data-tools-content .text-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trip-data-tools-content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+
+.trip-data-tools-content .text-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 .trip-section-heading {
@@ -1620,6 +1920,18 @@ summary:focus-visible {
   .shopping-form .primary-action {
     min-width: 0;
     padding: 0 10px;
+  }
+
+  .trip-data-tools-content {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-link-content {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-external-link {
+    width: 100%;
   }
 
   .map-chip-list,
@@ -2268,7 +2580,14 @@ summary:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .checklist-progress-track span {
+  .checklist-progress-track span,
+  .wallet-progress-track span {
+    transition: none;
+  }
+
+  .trip-accordion > summary,
+  .trip-accordion .trip-timetable-icon,
+  .trip-accordion .trip-timetable-chevron {
     transition: none;
   }
 }
