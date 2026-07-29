@@ -14,7 +14,7 @@ const days = [
       ["15:55 / 16:55", "岡山機場巴士：現場購票 ¥1,000，車程約 30 分", { mode: "機場巴士", from: "岡山桃太郎機場", to: "岡山站西口", note: "抵達大廳依現場班次搭乘" }],
       ["16:25 / 17:25", "入住岡山站前大和 Roynet 飯店", { mode: "步行", from: "岡山站西口", to: "ダイワロイネットホテル岡山駅前", note: "先放行李再出門", travelMode: "walking" }],
       ["17:30", "岡山站觀光案內所：看紀念章；東口交通案內所可買市電一日券"],
-      ["18:00-20:40", "永旺夢樂城岡山：逛街、明神丸晚餐、AEON 超市採買", { mode: "步行", from: "ダイワロイネットホテル岡山駅前", to: "イオンモール岡山", note: "專門店多為 21:00 打烊", travelMode: "walking" }],
+      ["18:00-20:40", "永旺夢樂城岡山：逛街、明神丸晚餐（22:00 打烊／21:00 最後點餐）、AEON 超市採買", { mode: "步行", from: "ダイワロイネットホテル岡山駅前", to: "イオンモール岡山", note: "專門店多為 21:00 打烊", travelMode: "walking" }],
       ["20:45", "Yours 超市補買水、早餐與電解質飲料"]
     ],
     route: [
@@ -23,7 +23,7 @@ const days = [
       "永旺 3F：3COINS+plus、ABC-MART、三麗鷗、Village Vanguard、Disney、niko and ...、WEGO、Thank You Mart",
       "永旺 4F：大創、Hands、蠟筆小新專賣店、UQ"
     ],
-    meals: ["Myojinmaru 明神丸", "Yours 超市", "AEON 超市"],
+    meals: ["Myojinmaru 明神丸（晚餐 17:00-22:00／L.O. 21:00）", "Yours 超市", "AEON 超市"],
     backup: [
       "高島屋百貨",
       "400°C PIZZA（偏貴）",
@@ -55,7 +55,7 @@ const days = [
       ["18:00", "宮島口經廣島返回岡山", { mode: "JR＋新幹線", from: "宮島口駅", to: "岡山駅", note: "廣島站轉山陽新幹線" }]
     ],
     route: ["岡山", "廣島", "宮島口", "JR 宮島渡輪", "宮島"],
-    meals: ["牡蠣屋", "Mikotoya みこと屋（星鰻飯，需訂位）", "御食事処 岩むら（牡蠣定食）", "紅葉堂", "伊都岐咖啡"],
+    meals: ["牡蠣屋（10:00-18:00，季節可能調整）", "Mikotoya みこと屋（星鰻飯，需訂位）", "御食事処 岩むら（牡蠣定食）", "紅葉堂", "伊都岐咖啡（9:00-19:00／L.O. 18:45）"],
     backup: ["豊國神社（千疊閣）與五重塔", "太熱或停駛就取消纜車，改表參道與咖啡", "風雨時與 8/18 廣島市區互換"]
   },
   {
@@ -96,15 +96,15 @@ const days = [
       ["09:00", "岡山站 1、2 號月台搭山陽本線／伯備線到倉敷", { mode: "JR 在來線", from: "岡山駅", to: "倉敷駅", note: "周遊券涵蓋；到站走左側南口" }],
       ["09:30-10:00", "南口經惠比壽商店街前往阿智神社", { mode: "步行", from: "倉敷駅南口", to: "阿智神社", note: "注意蚊蟲與階梯", travelMode: "walking" }],
       ["10:00-12:30", "阿智神社、倉敷美觀地區、紙膠帶店與白壁街道"],
-      ["12:30-13:40", "午餐：有鄰庵生蛋拌飯配鯛魚，或岡山希少和牛店"],
+      ["12:30-13:40", "午餐：有鄰庵生蛋拌飯配鯛魚，或岡山希少和牛店（通常 17:00 打烊）"],
       ["13:40-15:20", "倉敷長春藤廣場與特色 Lawson；大原美術館可選配"],
       ["15:20", "回倉敷站，穿越到右側北口", { mode: "步行", from: "倉敷美観地区", to: "アリオ倉敷", note: "先到 Ario 用餐或休息", travelMode: "walking" }],
       ["16:00-18:20", "三井 Outlet：先到案內所拿外國旅客優惠券，再逛 Loft"],
-      ["18:30-19:30", "晚餐：回転寿司すし丸 アリオ倉敷店"],
+      ["18:30-19:30", "晚餐：回転寿司すし丸 アリオ倉敷店（22:00 打烊／21:30 最後點餐）"],
       ["19:40", "倉敷站返回岡山", { mode: "JR 在來線", from: "倉敷駅", to: "岡山駅", note: "山陽本線；周遊券涵蓋" }]
     ],
     route: ["倉敷站左側南口：老街與美觀地區", "倉敷站右側北口：Ario、Outlet", "Outlet 餐廳少，先在對面 Ario 吃", "外國旅客出示護照，先問案內所優惠券；各店退稅規則不同"],
-    meals: ["有鄰庵（生蛋拌飯配鯛魚）", "有鄰庵 岡山希少和牛店", "炸肉球小吃", "晚餐：回転寿司すし丸 アリオ倉敷店"],
+    meals: ["有鄰庵（通常 11:00-17:00；生蛋拌飯配鯛魚）", "有鄰庵 岡山希少和牛店（11:00-17:00）", "炸肉球小吃", "晚餐：回転寿司すし丸 アリオ倉敷店（11:00-22:00／L.O. 21:30）"],
     backup: ["倉敷本町通商店街、林源十郎商店、平翠軒", "大原美術館（成人 ¥2,000）", "是否購買美觀地區漫步優惠券，到現場再決定", "太熱就縮短阿智神社"]
   },
   {
@@ -115,19 +115,18 @@ const days = [
     theme: "岡山城、後樂園、表町",
     pass: "Pass Day 4",
     passCovered: true,
-    summary: "使用岡山市電一日券走城下、岡山城、後樂園與表町商店街，晚餐預約壽喜燒。市電與巴士不在 JR Pass 範圍。",
+    summary: "市電只搭岡山站前到城下、縣廳通到岡山站前兩趟，單程 ¥160、合計 ¥320。搭配岡山城＋後樂園共通券 ¥800 時，一日券 ¥400 反而每人多 ¥80，因此不用特別購買。市電不在 JR Pass 範圍。",
     schedule: [
-      ["08:30", "購買岡山市電一日券 ¥400"],
-      ["08:45", "岡山站前搭東山線到城下站", { mode: "岡山市電", from: "岡山駅前", to: "城下（岡山）", note: "東山線；使用一日券" }],
+      ["08:45", "岡山站前搭東山線到城下站（¥160）", { mode: "岡山市電", from: "岡山駅前", to: "城下（岡山）", note: "東山線；IC 或現金，JR Pass 不涵蓋" }],
       ["09:00-10:20", "岡山城天守"],
-      ["10:20-12:00", "岡山後樂園；岡山城＋後樂園共通券 ¥800"],
-      ["12:10-13:20", "午餐：司味野村豬排定食或 Uoya Taisho 魚や大将"],
-      ["13:30-16:30", "表町商店街、天滿屋、岡山木村屋、無印良品"],
-      ["16:30-17:10", "岡山神社：找蕾絲編織岡山城御守"],
-      ["17:20", "城下站返回岡山站前", { mode: "岡山市電", from: "城下（岡山）", to: "岡山駅前", note: "東山線；使用一日券" }],
+      ["10:20-11:40", "岡山後樂園；岡山城＋後樂園共通券 ¥800"],
+      ["11:40-12:20", "岡山後樂園步行到岡山神社：找蕾絲編織岡山城御守", { mode: "步行", from: "岡山後楽園", to: "岡山神社 岡山県岡山市北区石関町2-33", note: "現址在石關町，不在岡山城內", travelMode: "walking" }],
+      ["12:30-13:40", "午餐：司味野村豬排定食或 Uoya Taisho 魚や大将"],
+      ["13:50-16:40", "表町商店街、天滿屋、岡山木村屋、無印良品"],
+      ["17:00", "縣廳通站返回岡山站前（¥160）", { mode: "岡山市電", from: "県庁通り（岡山）", to: "岡山駅前", note: "東山線；IC 或現金，JR Pass 不涵蓋" }],
       ["晚上", "預約壽喜燒晚餐"]
     ],
-    route: ["岡山站前 → 城下：岡電東山線", "城下站步行到岡山城、後樂園與表町"],
+    route: ["岡山站前 → 城下：岡電東山線 ¥160", "岡山城 → 後樂園 → 岡山神社：步行", "岡山神社 → 表町商店街：步行", "縣廳通 → 岡山站前：岡電東山線 ¥160"],
     meals: ["Uoya Taisho 魚や大将", "司味野村豬排定食", "壽喜燒（需預約）"],
     backup: ["柳川站：麺酒一照庵 岡山本店", "下雨就縮短後樂園，改岡山城、表町與天滿屋", "訂不到壽喜燒就回岡山站或永旺"]
   },
@@ -142,7 +141,7 @@ const days = [
     summary: "先到廣島站吃 Shake Shack，再從新白島走廣島城、護國神社、原爆圓頂屋與和平紀念公園，最後逛紙屋町、本通並吃廣島燒。",
     schedule: [
       ["08:30", "山陽新幹線前往廣島", { mode: "JR 新幹線", from: "岡山駅", to: "広島駅", note: "周遊券最後一天；建議事先劃位" }],
-      ["09:15-10:00", "minamoa 廣島 Shake Shack（10:00 開門）"],
+      ["09:15-10:00", "minamoa 廣島 Shake Shack（10:00 開門／21:00 最後點餐）"],
       ["10:10", "廣島站搭普通電車到新白島", { mode: "JR 在來線", from: "広島駅", to: "新白島駅", note: "周遊券涵蓋" }],
       ["10:25-12:00", "廣島城外觀、二之丸復原建築與廣島護國神社"],
       ["12:00-12:30", "步行前往原爆圓頂屋", { mode: "步行", from: "広島城", to: "原爆ドーム", note: "沿途注意防曬補水", travelMode: "walking" }],
@@ -153,7 +152,7 @@ const days = [
       ["20:00", "山陽新幹線返回岡山", { mode: "JR 新幹線", from: "広島駅", to: "岡山駅", note: "周遊券涵蓋" }]
     ],
     route: ["廣島站 → 新白島：JR 普通電車", "新白島 → 廣島城 → 原爆圓頂屋：步行", "本通／八丁堀 → 廣島站：廣電路面電車"],
-    meals: ["SHAKE SHACK minamoa 廣島店", "牡蠣屋", "廣島燒村（整棟，準備現金）", "長田屋（廣島燒）"],
+    meals: ["SHAKE SHACK minamoa 廣島店（10:00-21:00 L.O.）", "牡蠣屋", "廣島燒村（整棟，準備現金）", "長田屋（廣島燒）"],
     backup: ["廣島城天守已於 2026/3/22 永久閉館，不需購買 ¥370 門票", "下雨就資料館、本通與廣島站", "資料館排隊太長可先走公園或調整入館時間"]
   },
   {
@@ -231,7 +230,7 @@ const dayMapQueries = {
     ["岡山城", "岡山城"],
     ["岡山後樂園", "岡山後楽園"],
     ["表町商店街", "岡山 表町商店街"],
-    ["岡山神社", "岡山神社"],
+    ["岡山神社", "岡山神社 岡山県岡山市北区石関町2-33"],
     ["天滿屋", "天満屋 岡山本店", false],
     ["司味野村", "味司野村 岡山", false],
     ["魚や大将", "魚や大将 岡山", false],
@@ -272,7 +271,7 @@ const budgetItems = [
   ["8/15", "桃太郎線", "岡山 -> 吉備津一帶", "Pass 覆蓋", "0", "熱時可搭短程計程車"],
   ["8/16", "岡山 -> 倉敷", "JR 來回", "Pass 覆蓋", "0", "山陽本線"],
   ["8/16", "大原美術館", "選配門票", "另付", "2000", "雨天/高溫備案"],
-  ["8/17", "岡山市電一日券", "岡山站前 -> 城下", "另付", "400", "成人；JR Pass 不涵蓋"],
+  ["8/17", "岡山市電往返", "岡山站前 -> 城下／縣廳通 -> 岡山站前", "另付", "320", "單程 ¥160；搭配共通券時一日券不划算"],
   ["8/17", "後樂園 + 岡山城", "共通券", "另付", "800", "成人"],
   ["8/18", "岡山 -> 廣島", "新幹線來回", "Pass 覆蓋", "0", "Pass 最後一天"],
   ["8/18", "廣島市內交通", "廣電市電", "另付", "240-500", "依搭乘次數"],
@@ -394,13 +393,145 @@ function writeJson(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+function migrateStoredTripDays(saved) {
+  const migrated = clone(saved);
+  const findDay = (key) => migrated.find((day) => day.key === key);
+  const replaceMeal = (day, oldText, newText) => {
+    const index = day?.meals?.indexOf(oldText) ?? -1;
+    if (index >= 0) day.meals[index] = newText;
+  };
+  const findScheduleIndex = (day, time, text) =>
+    day?.schedule?.findIndex((item) => item[0] === time && item[1] === text) ?? -1;
+  const replaceSchedule = (day, time, text, replacement) => {
+    const index = findScheduleIndex(day, time, text);
+    if (index >= 0) day.schedule[index] = replacement;
+  };
+
+  const day13 = findDay("0813");
+  replaceSchedule(
+    day13,
+    "18:00-20:40",
+    "永旺夢樂城岡山：逛街、明神丸晚餐、AEON 超市採買",
+    ["18:00-20:40", "永旺夢樂城岡山：逛街、明神丸晚餐（22:00 打烊／21:00 最後點餐）、AEON 超市採買", { mode: "步行", from: "ダイワロイネットホテル岡山駅前", to: "イオンモール岡山", note: "專門店多為 21:00 打烊", travelMode: "walking" }]
+  );
+  replaceMeal(day13, "Myojinmaru 明神丸", "Myojinmaru 明神丸（晚餐 17:00-22:00／L.O. 21:00）");
+
+  const day14 = findDay("0814");
+  replaceMeal(day14, "牡蠣屋", "牡蠣屋（10:00-18:00，季節可能調整）");
+  replaceMeal(day14, "伊都岐咖啡", "伊都岐咖啡（9:00-19:00／L.O. 18:45）");
+
+  let day16 = findDay("0816");
+  const legacyDay16Schedule = [
+    ["09:00", "岡山搭 JR 山陽本線到倉敷，pass 覆蓋"],
+    ["09:45-10:30", "阿智神社，先處理爬坡段"],
+    ["10:30-12:30", "倉敷美觀地區、白壁街道、運河、雜貨店"],
+    ["12:30-13:30", "午餐：岩むら或美觀地區附近和食"],
+    ["13:30-15:30", "大原美術館或咖啡休息"],
+    ["15:30-17:30", "回倉敷站，北口 Mitsui Outlet Park 倉敷"],
+    ["17:30-19:00", "倉敷晚餐或回岡山站吃"]
+  ];
+  if (JSON.stringify(day16?.schedule) === JSON.stringify(legacyDay16Schedule)) {
+    Object.assign(day16, clone(days.find((day) => day.key === "0816")));
+  }
+  replaceSchedule(
+    day16,
+    "12:30-13:40",
+    "午餐：有鄰庵生蛋拌飯配鯛魚，或岡山希少和牛店",
+    ["12:30-13:40", "午餐：有鄰庵生蛋拌飯配鯛魚，或岡山希少和牛店（通常 17:00 打烊）"]
+  );
+  replaceSchedule(
+    day16,
+    "18:30-19:30",
+    "晚餐：回転寿司すし丸 アリオ倉敷店",
+    ["18:30-19:30", "晚餐：回転寿司すし丸 アリオ倉敷店（22:00 打烊／21:30 最後點餐）"]
+  );
+  replaceMeal(day16, "有鄰庵（生蛋拌飯配鯛魚）", "有鄰庵（通常 11:00-17:00；生蛋拌飯配鯛魚）");
+  replaceMeal(day16, "有鄰庵 岡山希少和牛店", "有鄰庵 岡山希少和牛店（11:00-17:00）");
+  replaceMeal(day16, "晚餐：回転寿司すし丸 アリオ倉敷店", "晚餐：回転寿司すし丸 アリオ倉敷店（11:00-22:00／L.O. 21:30）");
+
+  let day17 = findDay("0817");
+  const legacyDay17Schedule = [
+    ["08:00", "飯店出門，市電/巴士到後樂園或城下"],
+    ["08:30-10:00", "岡山後樂園，先走庭園和岡山城借景"],
+    ["10:00-11:30", "岡山城天守"],
+    ["11:30-12:30", "城下或後樂園周邊午餐/茶屋"],
+    ["12:30-14:30", "表町商店街、天滿屋、咖啡休息"],
+    ["14:30-16:00", "回飯店午休或補岡山站紀念章"],
+    ["晚上", "壽喜燒晚餐，需事前預約"]
+  ];
+  if (JSON.stringify(day17?.schedule) === JSON.stringify(legacyDay17Schedule)) {
+    Object.assign(day17, clone(days.find((day) => day.key === "0817")));
+  }
+  if (day17?.summary === "使用岡山市電一日券走城下、岡山城、後樂園與表町商店街，晚餐預約壽喜燒。市電與巴士不在 JR Pass 範圍。") {
+    day17.summary = days.find((day) => day.key === "0817").summary;
+  }
+  const passPurchaseIndex = findScheduleIndex(day17, "08:30", "購買岡山市電一日券 ¥400");
+  if (passPurchaseIndex >= 0) day17.schedule.splice(passPurchaseIndex, 1);
+  replaceSchedule(
+    day17,
+    "08:45",
+    "岡山站前搭東山線到城下站",
+    ["08:45", "岡山站前搭東山線到城下站（¥160）", { mode: "岡山市電", from: "岡山駅前", to: "城下（岡山）", note: "東山線；IC 或現金，JR Pass 不涵蓋" }]
+  );
+  replaceSchedule(
+    day17,
+    "10:20-12:00",
+    "岡山後樂園；岡山城＋後樂園共通券 ¥800",
+    ["10:20-11:40", "岡山後樂園；岡山城＋後樂園共通券 ¥800"]
+  );
+  replaceSchedule(
+    day17,
+    "12:10-13:20",
+    "午餐：司味野村豬排定食或 Uoya Taisho 魚や大将",
+    ["12:30-13:40", "午餐：司味野村豬排定食或 Uoya Taisho 魚や大将"]
+  );
+  replaceSchedule(
+    day17,
+    "13:30-16:30",
+    "表町商店街、天滿屋、岡山木村屋、無印良品",
+    ["13:50-16:40", "表町商店街、天滿屋、岡山木村屋、無印良品"]
+  );
+  replaceSchedule(
+    day17,
+    "17:20",
+    "城下站返回岡山站前",
+    ["17:00", "縣廳通站返回岡山站前（¥160）", { mode: "岡山市電", from: "県庁通り（岡山）", to: "岡山駅前", note: "東山線；IC 或現金，JR Pass 不涵蓋" }]
+  );
+  const oldShrineIndex = findScheduleIndex(day17, "16:30-17:10", "岡山神社：找蕾絲編織岡山城御守");
+  if (oldShrineIndex >= 0) {
+    day17.schedule.splice(oldShrineIndex, 1);
+    const gardenIndex = findScheduleIndex(day17, "10:20-11:40", "岡山後樂園；岡山城＋後樂園共通券 ¥800");
+    day17.schedule.splice(gardenIndex + 1, 0, ["11:40-12:20", "岡山後樂園步行到岡山神社：找蕾絲編織岡山城御守", { mode: "步行", from: "岡山後楽園", to: "岡山神社 岡山県岡山市北区石関町2-33", note: "現址在石關町，不在岡山城內", travelMode: "walking" }]);
+  }
+  if (JSON.stringify(day17?.route) === JSON.stringify(["岡山站前 → 城下：岡電東山線", "城下站步行到岡山城、後樂園與表町"])) {
+    day17.route = clone(days.find((day) => day.key === "0817").route);
+  }
+
+  const day18 = findDay("0818");
+  replaceSchedule(
+    day18,
+    "09:15-10:00",
+    "minamoa 廣島 Shake Shack（10:00 開門）",
+    ["09:15-10:00", "minamoa 廣島 Shake Shack（10:00 開門／21:00 最後點餐）"]
+  );
+  replaceMeal(day18, "SHAKE SHACK minamoa 廣島店", "SHAKE SHACK minamoa 廣島店（10:00-21:00 L.O.）");
+
+  return migrated;
+}
+
 function loadTripDays() {
   const saved = readJson(STORAGE_KEYS.itinerary, null);
   if (!Array.isArray(saved) || saved.length !== days.length) return clone(days);
 
   const defaultKeys = days.map((day) => day.key).join("|");
   const savedKeys = saved.map((day) => day.key).join("|");
-  return defaultKeys === savedKeys ? saved : clone(days);
+  if (defaultKeys !== savedKeys) return clone(days);
+
+  const migrated = migrateStoredTripDays(saved);
+  if (JSON.stringify(migrated) !== JSON.stringify(saved)) {
+    writeJson(STORAGE_KEYS.itinerary, migrated);
+  }
+  return migrated;
 }
 
 function saveTripDays() {
