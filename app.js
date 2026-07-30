@@ -281,19 +281,53 @@ const budgetItems = [
 ];
 
 const bundledShoppingItems = [
-  {
-    id: "bundled-forest-family",
-    name: "森林探險家族",
-    image: "./assets/shopping/forest-family.jpg"
-  }
-];
+  ["bundled-forest-family", "森林探險家族", "./assets/shopping/forest-family.jpg"],
+  ["bundled-shopping-001", "3coins 小熊防蚊", "./assets/shopping/shopping-001.webp"],
+  ["bundled-shopping-002", "3coins 聲波防蚊", "./assets/shopping/shopping-002.webp"],
+  ["bundled-shopping-003", "7-11軟糖-酸_", "./assets/shopping/shopping-003.webp"],
+  ["bundled-shopping-004", "三麗鷗盲盒", "./assets/shopping/shopping-004.webp"],
+  ["bundled-shopping-005", "三麗鷗盲盒(1)", "./assets/shopping/shopping-005.webp"],
+  ["bundled-shopping-006", "三麗鷗盲盒(2)", "./assets/shopping/shopping-006.webp"],
+  ["bundled-shopping-007", "日本蒜片", "./assets/shopping/shopping-007.webp"],
+  ["bundled-shopping-008", "卡套_", "./assets/shopping/shopping-008.webp"],
+  ["bundled-shopping-009", "可看隱眼", "./assets/shopping/shopping-009.webp"],
+  ["bundled-shopping-010", "白元衣物除皺噴霧", "./assets/shopping/shopping-010.webp"],
+  ["bundled-shopping-011", "扭蛋_(1)", "./assets/shopping/shopping-011.webp"],
+  ["bundled-shopping-012", "扭蛋", "./assets/shopping/shopping-012.webp"],
+  ["bundled-shopping-013", "保養胃藥 _3", "./assets/shopping/shopping-013.webp"],
+  ["bundled-shopping-014", "胃藥_1", "./assets/shopping/shopping-014.webp"],
+  ["bundled-shopping-015", "胃藥36_1", "./assets/shopping/shopping-015.webp"],
+  ["bundled-shopping-016", "疲勞眼藥水", "./assets/shopping/shopping-016.webp"],
+  ["bundled-shopping-017", "傑利鼠扭蛋_", "./assets/shopping/shopping-017.webp"],
+  ["bundled-shopping-018", "森林-Buy_", "./assets/shopping/shopping-018.webp"],
+  ["bundled-shopping-019", "森林-Buy1", "./assets/shopping/shopping-019.webp"],
+  ["bundled-shopping-020", "森林-Buy2", "./assets/shopping/shopping-020.webp"],
+  ["bundled-shopping-021", "森林-Buy3", "./assets/shopping/shopping-021.webp"],
+  ["bundled-shopping-022", "森林-Buy4", "./assets/shopping/shopping-022.webp"],
+  ["bundled-shopping-023", "森林單人偶篇", "./assets/shopping/shopping-023.webp"],
+  ["bundled-shopping-024", "無印吸水棒", "./assets/shopping/shopping-024.webp"],
+  ["bundled-shopping-025", "無印棉被_", "./assets/shopping/shopping-025.webp"],
+  ["bundled-shopping-026", "無印襪子", "./assets/shopping/shopping-026.webp"],
+  ["bundled-shopping-027", "感冒藥", "./assets/shopping/shopping-027.webp"],
+  ["bundled-shopping-028", "蜜桃洗屁股肥皂", "./assets/shopping/shopping-028.webp"],
+  ["bundled-shopping-029", "磨砂膏", "./assets/shopping/shopping-029.webp"],
+  ["bundled-shopping-030", "離子夾_", "./assets/shopping/shopping-030.webp"],
+  ["bundled-shopping-031", "離子夾_(1)", "./assets/shopping/shopping-031.webp"],
+  ["bundled-shopping-032", "離子夾", "./assets/shopping/shopping-032.webp"],
+  ["bundled-shopping-033", "GU 衣服 日本官網貨號：359646_", "./assets/shopping/shopping-033.webp"],
+  ["bundled-shopping-034", "GU透膚連帽拉鍊外套(359519)", "./assets/shopping/shopping-034.webp"],
+  ["bundled-shopping-035", "Melano CC", "./assets/shopping/shopping-035.webp"],
+  ["bundled-shopping-036", "NB包包", "./assets/shopping/shopping-036.webp"],
+  ["bundled-shopping-037", "tutuanna可愛袖套", "./assets/shopping/shopping-037.webp"],
+  ["bundled-shopping-038", "UQ 衣服", "./assets/shopping/shopping-038.webp"]
+].map(([id, name, image]) => ({ id, name, image }));
 
 const STORAGE_KEYS = {
   itinerary: "okayamaItineraryV3",
   checklist: "okayamaChecklist",
   shopping: "okayamaShoppingListV1",
-  shoppingSeed: "okayamaShoppingSeedV2",
-  shoppingSyncMigration: "okayamaShoppingSyncMigrationV1",
+  shoppingSeed: "okayamaShoppingSeedV3",
+  shoppingSyncMigration: "okayamaShoppingSyncMigrationV2",
   ledgerSyncMigration: "okayamaLedgerSyncMigrationV1",
   contentSyncMigration: "okayamaContentSyncMigrationV1",
   itinerarySyncDirty: "okayamaItinerarySyncDirtyV1",
