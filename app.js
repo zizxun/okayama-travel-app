@@ -2437,11 +2437,12 @@ function renderShoppingProgress(items, completed) {
 
 function renderShoppingList() {
   const items = loadShoppingList();
+  const displayItems = [...items].sort((a, b) => Number(a.done) - Number(b.done));
   const completed = items.filter((item) => item.done).length;
   renderShoppingProgress(items, completed);
   $("#shoppingCount").textContent = `${items.length} 項 · 已買 ${completed}`;
   $("#shoppingList").innerHTML = items.length
-    ? items
+    ? displayItems
         .map(
           (item) => {
             const hasImage = Boolean(item.image);
