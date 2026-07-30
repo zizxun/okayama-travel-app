@@ -377,7 +377,7 @@ const itineraryTicketMeta = {
   "0814": { headline: "今天去宮島", from: "岡山", fromEn: "OKAYAMA", to: "宮島", toEn: "MIYAJIMA" },
   "0815": { headline: "今天去姬路與吉備津", from: "岡山", fromEn: "OKAYAMA", to: "姬路", toEn: "HIMEJI" },
   "0816": { headline: "今天去倉敷", from: "岡山", fromEn: "OKAYAMA", to: "倉敷", toEn: "KURASHIKI" },
-  "0817": { headline: "午餐後遊岡山市區", from: "岡山站", fromEn: "OKAYAMA", to: "ひとり鍋 megu", toEn: "HITORINABE MEGU" },
+  "0817": { headline: "午餐後遊岡山市區", from: "岡山站", fromEn: "OKAYAMA", to: "岡山城", toEn: "OKAYAMA CASTLE" },
   "0818": { headline: "今天去廣島", from: "岡山", fromEn: "OKAYAMA", to: "廣島", toEn: "HIROSHIMA" },
   "0819": { headline: "今天從岡山回家", from: "岡山", fromEn: "OKAYAMA", to: "岡山機場", toEn: "OKAYAMA AIRPORT" }
 };
