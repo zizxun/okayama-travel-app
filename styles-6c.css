@@ -1595,6 +1595,97 @@ summary:focus-visible {
   stroke-linejoin: round;
 }
 
+.coupon-link-content {
+  padding: 0 13px 12px;
+}
+
+.coupon-link-list {
+  display: grid;
+}
+
+.coupon-link-row {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  gap: 11px;
+  align-items: center;
+  padding: 12px 0;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  transition: background-color 140ms ease;
+}
+
+.coupon-link-row:last-child {
+  border-bottom: 0;
+}
+
+.coupon-link-row:focus-visible {
+  outline: 3px solid rgba(21, 112, 99, 0.32);
+  outline-offset: 2px;
+}
+
+.coupon-link-mark {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: var(--teal);
+  font-size: 0.82rem;
+  font-weight: 900;
+  border: 1px solid #bfd2cd;
+  border-radius: 50%;
+  background: var(--teal-soft);
+}
+
+.coupon-link-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.coupon-link-copy .eyebrow {
+  margin: 0;
+  color: var(--vermilion);
+  font-size: 0.62rem;
+}
+
+.coupon-link-copy strong {
+  font-size: 0.92rem;
+}
+
+.coupon-link-copy small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.coupon-link-row > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--teal);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.coupon-link-note {
+  margin: 4px 0 0;
+  padding-top: 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  border-top: 1px dashed var(--line);
+}
+
+@media (hover: hover) {
+  .coupon-link-row:hover {
+    background: #f7faf8;
+  }
+}
+
 .trip-weather-content .weather-panel {
   margin: 0;
   padding: 0;
