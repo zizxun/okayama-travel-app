@@ -14,8 +14,8 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/okayama-icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="./icons/okayama-icon-192.png" />
-    <link rel="stylesheet" href="./styles.css?v=30" />
-    <link rel="stylesheet" href="./styles-6c.css?v=30" />
+    <link rel="stylesheet" href="./styles.css?v=36" />
+    <link rel="stylesheet" href="./styles-6c.css?v=39" />
   </head>
   <body>
     <div class="app-shell">
@@ -69,6 +69,45 @@
           <header class="view-heading">
             <div><p class="eyebrow">Shopping</p><h2>購物清單</h2></div>
           </header>
+          <details class="shopping-sync-panel" id="shoppingSyncPanel">
+            <summary>
+              <span class="shopping-sync-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 18a5 5 0 0 1-.8-9.94A7 7 0 0 1 19.7 10.5 4 4 0 0 1 19 18Z" /><path d="m9 13 2 2 4-4" /></svg>
+              </span>
+              <span class="shopping-sync-copy">
+                <span class="eyebrow">Trip Sync</span>
+                <strong id="shoppingSyncTitle">本機模式</strong>
+                <small id="shoppingSyncMeta">這支手機上的旅行資料</small>
+              </span>
+              <svg class="shopping-sync-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4" /></svg>
+            </summary>
+            <div class="shopping-sync-content">
+              <form id="shoppingSyncForm">
+                <div class="shopping-sync-fields" id="shoppingSyncFields">
+                  <label>
+                    身分
+                    <select id="shoppingSyncIdentity">
+                      <option value="XUN">XUN</option>
+                      <option value="UT">UT</option>
+                    </select>
+                  </label>
+                  <label>
+                    密碼
+                    <input id="shoppingSyncPassword" type="password" minlength="6" autocomplete="current-password" placeholder="輸入測試密碼" />
+                  </label>
+                </div>
+                <label class="shopping-sync-password-toggle" id="shoppingSyncPasswordToggle">
+                  <input id="shoppingSyncShowPassword" type="checkbox" />
+                  顯示密碼
+                </label>
+                <div class="shopping-sync-actions">
+                  <button class="text-button primary-action" id="shoppingSyncLogin" type="submit">登入同步</button>
+                  <button class="text-button" id="shoppingSyncLogout" type="button" hidden>登出</button>
+                </div>
+                <p class="shopping-sync-message" id="shoppingSyncMessage" role="status">正在檢查同步設定</p>
+              </form>
+            </div>
+          </details>
           <section class="wallet-progress" id="shoppingProgress" aria-live="polite"></section>
           <form class="shopping-form" id="shoppingForm">
             <label class="visually-hidden" for="shoppingItemInput">新增購物項目</label>
@@ -442,7 +481,7 @@
               </div>
               <label class="memo-field">
                 <span>備忘錄</span>
-                <textarea id="tripMemo" rows="5" placeholder="可以記航班訂位代號、飯店備註、想買的東西、同行提醒..."></textarea>
+                <textarea id="tripMemo" rows="5" maxlength="5000" placeholder="可以記航班訂位代號、飯店備註、想買的東西、同行提醒..."></textarea>
               </label>
             </div>
           </details>
@@ -515,7 +554,7 @@
       </main>
     </div>
 
-    <script src="./app.js?v=30"></script>
+    <script src="./app.js?v=39"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         window.addEventListener("load", () => {

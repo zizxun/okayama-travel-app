@@ -293,6 +293,11 @@ const STORAGE_KEYS = {
   checklist: "okayamaChecklist",
   shopping: "okayamaShoppingListV1",
   shoppingSeed: "okayamaShoppingSeedV2",
+  shoppingSyncMigration: "okayamaShoppingSyncMigrationV1",
+  ledgerSyncMigration: "okayamaLedgerSyncMigrationV1",
+  contentSyncMigration: "okayamaContentSyncMigrationV1",
+  itinerarySyncDirty: "okayamaItinerarySyncDirtyV1",
+  memoSyncDirty: "okayamaMemoSyncDirtyV1",
   memo: "okayamaTripMemo",
   expenses: "okayamaExpensesV1",
   weather: "okayamaWeatherCacheV1",
@@ -365,7 +370,37 @@ const state = {
   activeDay: getInitialActiveDayKey(),
   activeTab: "itinerary",
   editMode: false,
-  expandedShoppingImages: new Set()
+  expandedShoppingImages: new Set(),
+  shoppingSync: {
+    available: false,
+    connected: false,
+    identity: "",
+    pending: 0,
+    pendingScopes: {
+      shopping: 0,
+      expenses: 0,
+      publicFund: 0,
+      itinerary: 0,
+      memo: 0
+    },
+    unsubscribe: null,
+    expenseUnsubscribe: null,
+    publicFundUnsubscribe: null,
+    itineraryUnsubscribe: null,
+    memoUnsubscribe: null,
+    authUnsubscribe: null,
+    services: null,
+    users: null,
+    itemsRef: null,
+    expensesRef: null,
+    publicFundRef: null,
+    itineraryRef: null,
+    memoRef: null,
+    itineraryWriteTimers: new Map(),
+    memoWriteTimer: null,
+    deferredItineraryPayloads: new Map(),
+    deferredMemoText: null
+  }
 };
 
 function $(selector) {
@@ -534,8 +569,10 @@ function loadTripDays() {
   return migrated;
 }
 
-function saveTripDays() {
+function saveTripDays(dayKey = state.activeDay, immediate = false) {
   writeJson(STORAGE_KEYS.itinerary, tripDays);
+  state.shoppingSync.deferredItineraryPayloads.delete(dayKey);
+  scheduleItinerarySync(dayKey, immediate);
 }
 
 function normalizeExpensePayer(payer) {
@@ -575,7 +612,7 @@ function loadExpenses() {
         payer,
         split,
         owner,
-        amount: Number(expense.amount) || 0,
+        amount: Math.round(Number(expense.amount)) || 0,
         name: String(expense.name || "").trim(),
         note: String(expense.note || "").trim(),
         createdAt: String(expense.createdAt || new Date().toISOString())
@@ -597,7 +634,7 @@ function loadPublicFundDeposits() {
       id: String(deposit.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
       date: String(deposit.date || tripDays[0]?.date || ""),
       member: normalizeExpenseMember(deposit.member),
-      amount: Number(deposit.amount) || 0,
+      amount: Math.round(Number(deposit.amount)) || 0,
       note: String(deposit.note || "").trim(),
       createdAt: String(deposit.createdAt || new Date().toISOString())
     }))
@@ -652,9 +689,19 @@ function sumAmounts(items) {
   return items.reduce((sum, item) => sum + Number(item.amount || 0), 0);
 }
 
+function splitYenEvenly(amount) {
+  const total = Math.max(0, Math.round(Number(amount) || 0));
+  const utShare = Math.floor(total / expenseMembers.length);
+  return {
+    XUN: total - utShare,
+    UT: utShare
+  };
+}
+
 function calculatePublicFund(expenses = loadExpenses(), deposits = loadPublicFundDeposits()) {
   const publicExpenses = expenses.filter((expense) => expense.payer === publicExpenseAccount);
   const sharedExpenseTotal = sumAmounts(publicExpenses.filter((expense) => expense.split));
+  const sharedExpenseShares = splitYenEvenly(sharedExpenseTotal);
   const contributions = Object.fromEntries(
     expenseMembers.map((member) => [member, sumAmounts(deposits.filter((deposit) => deposit.member === member))])
   );
@@ -665,7 +712,7 @@ function calculatePublicFund(expenses = loadExpenses(), deposits = loadPublicFun
     ])
   );
   const liabilities = Object.fromEntries(
-    expenseMembers.map((member) => [member, personalCosts[member] + sharedExpenseTotal / expenseMembers.length])
+    expenseMembers.map((member) => [member, personalCosts[member] + sharedExpenseShares[member]])
   );
   const totalDeposits = sumAmounts(deposits);
   const totalExpenses = sumAmounts(publicExpenses);
@@ -676,6 +723,7 @@ function calculatePublicFund(expenses = loadExpenses(), deposits = loadPublicFun
     publicExpenses,
     contributions,
     personalCosts,
+    sharedExpenseShares,
     liabilities,
     totalDeposits,
     totalExpenses,
@@ -686,21 +734,30 @@ function calculatePublicFund(expenses = loadExpenses(), deposits = loadPublicFun
 
 function calculatePublicFundClosure(fund = calculatePublicFund()) {
   const needsTopUp = fund.balance < 0;
-  const refundShare = needsTopUp ? 0 : fund.balance / expenseMembers.length;
+  const adjustmentShares = splitYenEvenly(Math.abs(fund.balance));
+  const refundShares = Object.fromEntries(
+    expenseMembers.map((member) => [member, fund.balance > 0 ? adjustmentShares[member] : 0])
+  );
+  const topUpShares = Object.fromEntries(
+    expenseMembers.map((member) => [member, needsTopUp ? adjustmentShares[member] : 0])
+  );
   const members = expenseMembers.map((member) => ({
     member,
     action: fund.liabilities[member] - fund.contributions[member],
-    balance: needsTopUp ? null : fund.contributions[member] - fund.liabilities[member] - refundShare
+    balance:
+      fund.contributions[member]
+      - fund.liabilities[member]
+      - refundShares[member]
+      + topUpShares[member]
   }));
-  if (needsTopUp) return { needsTopUp, refundShare, members, settlementText: "" };
 
-  const creditor = members.find((item) => Number(item.balance) > 0.5);
-  const debtor = members.find((item) => Number(item.balance) < -0.5);
+  const creditor = members.find((item) => Number(item.balance) > 0);
+  const debtor = members.find((item) => Number(item.balance) < 0);
   const settlementText =
     creditor && debtor
       ? `公帳差額：${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
       : "公帳投入已平衡";
-  return { needsTopUp, refundShare, members, settlementText };
+  return { needsTopUp, refundShares, topUpShares, members, settlementText };
 }
 
 function calculateTripSettlement(expenses = loadExpenses()) {
@@ -708,18 +765,42 @@ function calculateTripSettlement(expenses = loadExpenses()) {
     (expense) => expense.split && expenseMembers.includes(expense.payer)
   );
   const total = sumAmounts(directSharedExpenses);
-  const sharePerPerson = total / expenseMembers.length;
   const members = expenseMembers.map((member) => {
     const paid = sumAmounts(directSharedExpenses.filter((expense) => expense.payer === member));
-    return { member, paid, share: sharePerPerson, balance: paid - sharePerPerson };
+    const share = directSharedExpenses.reduce((sum, expense) => {
+      const otherShare = Math.floor(expense.amount / expenseMembers.length);
+      return sum + (expense.payer === member ? expense.amount - otherShare : otherShare);
+    }, 0);
+    return { member, paid, share, balance: paid - share };
   });
-  const creditor = members.find((item) => item.balance > 0.5);
-  const debtor = members.find((item) => item.balance < -0.5);
+  const creditor = members.find((item) => item.balance > 0);
+  const debtor = members.find((item) => item.balance < 0);
   const settlementText =
     creditor && debtor
       ? `${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
       : "目前不用互補";
-  return { total, sharePerPerson, members, settlementText };
+  return { total, members, settlementText };
+}
+
+function calculateOverallSettlement(expenses = loadExpenses(), deposits = loadPublicFundDeposits()) {
+  const direct = calculateTripSettlement(expenses);
+  const publicFund = calculatePublicFund(expenses, deposits);
+  const publicClosure = calculatePublicFundClosure(publicFund);
+  const members = expenseMembers.map((member) => {
+    const directMember = direct.members.find((item) => item.member === member);
+    const publicMember = publicClosure.members.find((item) => item.member === member);
+    return {
+      member,
+      balance: directMember.balance + publicMember.balance
+    };
+  });
+  const creditor = members.find((item) => item.balance > 0);
+  const debtor = members.find((item) => item.balance < 0);
+  const settlementText =
+    creditor && debtor
+      ? `${debtor.member} 最終補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
+      : "整趟帳目已平衡";
+  return { direct, publicFund, publicClosure, members, settlementText };
 }
 
 function getTripIsoDate(day) {
@@ -1343,7 +1424,7 @@ function bindDayEditor(day) {
 
   detail.querySelector("[data-add-schedule]").addEventListener("click", () => {
     day.schedule.push(["", ""]);
-    saveTripDays();
+    saveTripDays(day.key, true);
     renderDayDetail();
     focusEditor(`[data-schedule-field="time"][data-index="${day.schedule.length - 1}"]`);
   });
@@ -1352,7 +1433,7 @@ function bindDayEditor(day) {
     if (!confirm("還原本日行程？這會刪除本日的手機本機修改。")) return;
     const dayIndex = tripDays.findIndex((item) => item.key === day.key);
     tripDays[dayIndex] = clone(getDefaultDay(day.key));
-    saveTripDays();
+    saveTripDays(day.key, true);
     renderDayNav();
     renderDayDetail();
   });
@@ -1362,7 +1443,7 @@ function bindDayEditor(day) {
       const index = Number(input.dataset.index);
       const fieldIndex = input.dataset.scheduleField === "time" ? 0 : 1;
       day.schedule[index][fieldIndex] = input.value;
-      saveTripDays();
+      saveTripDays(day.key);
     });
   });
 
@@ -1372,7 +1453,7 @@ function bindDayEditor(day) {
       const field = input.dataset.scheduleTransport;
       if (!day.schedule[index][2]) day.schedule[index][2] = {};
       day.schedule[index][2][field] = input.value;
-      saveTripDays();
+      saveTripDays(day.key);
     });
   });
 
@@ -1380,7 +1461,7 @@ function bindDayEditor(day) {
     button.addEventListener("click", () => {
       if (!confirm("刪除這個行程項目？")) return;
       day.schedule.splice(Number(button.dataset.deleteSchedule), 1);
-      saveTripDays();
+      saveTripDays(day.key, true);
       renderDayDetail();
     });
   });
@@ -1390,7 +1471,7 @@ function bindDayEditor(day) {
       const index = Number(button.dataset.moveSchedule);
       const direction = Number(button.dataset.direction);
       if (swapItems(day.schedule, index, direction)) {
-        saveTripDays();
+        saveTripDays(day.key, true);
         renderDayDetail();
       }
     });
@@ -1400,7 +1481,7 @@ function bindDayEditor(day) {
     button.addEventListener("click", () => {
       const field = button.dataset.addList;
       day[field].push("");
-      saveTripDays();
+      saveTripDays(day.key, true);
       renderDayDetail();
       focusEditor(`[data-list-field="${field}"][data-index="${day[field].length - 1}"]`);
     });
@@ -1411,7 +1492,7 @@ function bindDayEditor(day) {
       const field = input.dataset.listField;
       const index = Number(input.dataset.index);
       day[field][index] = input.value;
-      saveTripDays();
+      saveTripDays(day.key);
     });
   });
 
@@ -1420,7 +1501,7 @@ function bindDayEditor(day) {
       const [field, rawIndex] = button.dataset.deleteList.split(":");
       if (!confirm("刪除這個項目？")) return;
       day[field].splice(Number(rawIndex), 1);
-      saveTripDays();
+      saveTripDays(day.key, true);
       renderDayDetail();
     });
   });
@@ -1430,7 +1511,7 @@ function bindDayEditor(day) {
       const [field, rawIndex] = button.dataset.moveList.split(":");
       const direction = Number(button.dataset.direction);
       if (swapItems(day[field], Number(rawIndex), direction)) {
-        saveTripDays();
+        saveTripDays(day.key, true);
         renderDayDetail();
       }
     });
@@ -1469,6 +1550,828 @@ function loadShoppingList() {
 
 function saveShoppingList(items) {
   writeJson(STORAGE_KEYS.shopping, items);
+}
+
+function getBundledShoppingImage(id, name) {
+  return bundledShoppingItems.find((item) => item.id === id || item.name === name)?.image || "";
+}
+
+function setShoppingSyncMessage(message, isError = false) {
+  const element = $("#shoppingSyncMessage");
+  if (!element) return;
+  element.textContent = message;
+  element.classList.toggle("error", isError);
+}
+
+function renderShoppingSyncState(message = "") {
+  const sync = state.shoppingSync;
+  const panel = $("#shoppingSyncPanel");
+  if (!panel) return;
+
+  panel.classList.toggle("is-connected", sync.connected);
+  $("#shoppingSyncTitle").textContent = sync.connected ? `${sync.identity} 同步中` : sync.available ? "同步未登入" : "本機模式";
+  $("#shoppingSyncMeta").textContent = sync.connected
+    ? sync.pending
+      ? `${sync.pending} 筆等待同步`
+      : "旅行資料已同步"
+    : sync.available
+      ? "XUN／UT 共用旅行資料"
+      : "這支手機上的旅行資料";
+
+  $("#shoppingSyncFields").hidden = sync.connected;
+  $("#shoppingSyncPasswordToggle").hidden = sync.connected;
+  $("#shoppingSyncLogin").hidden = sync.connected;
+  $("#shoppingSyncLogout").hidden = !sync.connected;
+
+  const disabled = !sync.available || sync.connected;
+  $("#shoppingSyncIdentity").disabled = disabled;
+  $("#shoppingSyncPassword").disabled = disabled;
+  $("#shoppingSyncShowPassword").disabled = disabled;
+  $("#shoppingSyncLogin").disabled = disabled;
+
+  const ledgerSyncLabel = $("#expenseSummary .ledger-ticket-topline span:last-child");
+  if (ledgerSyncLabel) {
+    ledgerSyncLabel.textContent = sync.connected ? `${sync.identity} SYNC` : "LOCAL";
+  }
+
+  if (message) {
+    setShoppingSyncMessage(message);
+  } else if (sync.connected) {
+    setShoppingSyncMessage(sync.pending ? "變更會在恢復網路後送出" : "Firestore 即時同步");
+  } else if (sync.available) {
+    setShoppingSyncMessage("登入後會先合併這支手機的購物、記帳、行程與備忘錄");
+  } else {
+    setShoppingSyncMessage("同步尚未設定，旅行資料仍可離線使用");
+  }
+}
+
+function disconnectShoppingSubscription() {
+  const sync = state.shoppingSync;
+  sync.unsubscribe?.();
+  sync.expenseUnsubscribe?.();
+  sync.publicFundUnsubscribe?.();
+  sync.itineraryUnsubscribe?.();
+  sync.memoUnsubscribe?.();
+  sync.unsubscribe = null;
+  sync.expenseUnsubscribe = null;
+  sync.publicFundUnsubscribe = null;
+  sync.itineraryUnsubscribe = null;
+  sync.memoUnsubscribe = null;
+  sync.deferredItineraryPayloads.clear();
+  sync.deferredMemoText = null;
+  sync.pending = 0;
+  Object.keys(sync.pendingScopes).forEach((scope) => {
+    sync.pendingScopes[scope] = 0;
+  });
+}
+
+function cloudShoppingItem(itemDoc) {
+  const data = itemDoc.data();
+  const id = itemDoc.id;
+  const name = String(data.text || "").trim();
+  return {
+    id,
+    name,
+    done: Boolean(data.done),
+    image: getBundledShoppingImage(id, name)
+  };
+}
+
+function safeCloudDocumentId(id) {
+  return String(id).replaceAll("/", "_").slice(0, 120);
+}
+
+function localCreatedAtMillis(value) {
+  const parsed = Date.parse(String(value || ""));
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function cloudCreatedAtIso(value) {
+  const millis =
+    typeof value === "number"
+      ? value
+      : typeof value?.toMillis === "function"
+        ? value.toMillis()
+        : Date.now();
+  return new Date(millis).toISOString();
+}
+
+function updateSyncPendingScope(scope, snapshot) {
+  const sync = state.shoppingSync;
+  const pendingDocuments = snapshot.docs.filter((itemDoc) => itemDoc.metadata.hasPendingWrites).length;
+  sync.pendingScopes[scope] = snapshot.metadata.hasPendingWrites ? Math.max(1, pendingDocuments) : 0;
+  sync.pending = Object.values(sync.pendingScopes).reduce((sum, count) => sum + count, 0);
+}
+
+function cloudExpense(expenseDoc) {
+  const data = expenseDoc.data();
+  const payer = normalizeExpensePayer(data.payer);
+  const split = Boolean(data.split);
+  return {
+    id: expenseDoc.id,
+    date: String(data.date || tripDays[0]?.date || ""),
+    category: expenseCategories.includes(data.category) ? data.category : "其他",
+    payer,
+    split,
+    owner: split ? "" : normalizeExpenseMember(data.owner || payer),
+    amount: Math.round(Number(data.amount)) || 0,
+    name: String(data.name || "").trim(),
+    note: String(data.note || "").trim(),
+    createdAt: cloudCreatedAtIso(data.createdAt)
+  };
+}
+
+function cloudPublicFundDeposit(depositDoc) {
+  const data = depositDoc.data();
+  return {
+    id: depositDoc.id,
+    date: String(data.date || tripDays[0]?.date || ""),
+    member: normalizeExpenseMember(data.member),
+    amount: Math.round(Number(data.amount)) || 0,
+    note: String(data.note || "").trim(),
+    createdAt: cloudCreatedAtIso(data.createdAt)
+  };
+}
+
+function loadItinerarySyncDirtyKeys() {
+  const saved = readJson(STORAGE_KEYS.itinerarySyncDirty, []);
+  return new Set(Array.isArray(saved) ? saved.filter((key) => defaultDays.some((day) => day.key === key)) : []);
+}
+
+function markItinerarySyncDirty(dayKey) {
+  if (!defaultDays.some((day) => day.key === dayKey)) return;
+  const dirtyKeys = loadItinerarySyncDirtyKeys();
+  dirtyKeys.add(dayKey);
+  writeJson(STORAGE_KEYS.itinerarySyncDirty, [...dirtyKeys]);
+}
+
+function clearItinerarySyncDirty(dayKey) {
+  const dirtyKeys = loadItinerarySyncDirtyKeys();
+  dirtyKeys.delete(dayKey);
+  if (dirtyKeys.size) {
+    writeJson(STORAGE_KEYS.itinerarySyncDirty, [...dirtyKeys]);
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.itinerarySyncDirty);
+  }
+}
+
+function setMemoSyncDirty(isDirty) {
+  if (isDirty) {
+    localStorage.setItem(STORAGE_KEYS.memoSyncDirty, "1");
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.memoSyncDirty);
+  }
+}
+
+function buildItinerarySyncPayload(day) {
+  return JSON.stringify({
+    schedule: day.schedule,
+    route: day.route,
+    meals: day.meals,
+    backup: day.backup
+  });
+}
+
+function sanitizeSyncedTransport(transport) {
+  if (!transport || typeof transport !== "object" || Array.isArray(transport)) return undefined;
+  const sanitized = {};
+  ["mode", "from", "to", "note", "travelMode"].forEach((field) => {
+    if (field in transport) sanitized[field] = String(transport[field] || "").slice(0, 1000);
+  });
+  return Object.keys(sanitized).length ? sanitized : undefined;
+}
+
+function applyItinerarySyncPayload(dayKey, payload) {
+  const dayIndex = tripDays.findIndex((day) => day.key === dayKey);
+  if (dayIndex < 0) return false;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(String(payload || ""));
+  } catch {
+    return false;
+  }
+  if (
+    !parsed
+    || !Array.isArray(parsed.schedule)
+    || !Array.isArray(parsed.route)
+    || !Array.isArray(parsed.meals)
+    || !Array.isArray(parsed.backup)
+  ) {
+    return false;
+  }
+
+  const schedule = parsed.schedule
+    .filter((item) => Array.isArray(item) && item.length >= 2)
+    .map((item) => {
+      const syncedItem = [String(item[0] || "").slice(0, 1000), String(item[1] || "").slice(0, 5000)];
+      const transport = sanitizeSyncedTransport(item[2]);
+      if (transport) syncedItem.push(transport);
+      return syncedItem;
+    });
+  const stringList = (items) => items.map((item) => String(item || "").slice(0, 5000));
+
+  tripDays[dayIndex] = {
+    ...tripDays[dayIndex],
+    schedule,
+    route: stringList(parsed.route),
+    meals: stringList(parsed.meals),
+    backup: stringList(parsed.backup)
+  };
+  return true;
+}
+
+function updateDocumentSyncPendingScope(scope, snapshot) {
+  const sync = state.shoppingSync;
+  sync.pendingScopes[scope] = snapshot.metadata.hasPendingWrites ? 1 : 0;
+  sync.pending = Object.values(sync.pendingScopes).reduce((sum, count) => sum + count, 0);
+}
+
+async function migrateShoppingListToCloud() {
+  if (localStorage.getItem(STORAGE_KEYS.shoppingSyncMigration) === "1") return;
+  const sync = state.shoppingSync;
+  const { getDocsFromServer, setDoc, doc, serverTimestamp } = sync.services;
+  const cloudSnapshot = await getDocsFromServer(sync.itemsRef);
+  const cloudIds = new Set(cloudSnapshot.docs.map((itemDoc) => itemDoc.id));
+  const cloudNames = new Set(cloudSnapshot.docs.map((itemDoc) => String(itemDoc.data().text || "").trim()));
+  const localItems = loadShoppingList();
+  const createdAt = Date.now();
+
+  const missingItems = localItems.filter((item) => !cloudIds.has(item.id) && !cloudNames.has(item.name));
+  await Promise.all(
+    missingItems.map((item, index) =>
+      setDoc(doc(sync.itemsRef, safeCloudDocumentId(item.id)), {
+        text: item.name,
+        done: item.done,
+        createdAt: createdAt + index,
+        updatedAt: serverTimestamp(),
+        updatedBy: sync.identity
+      })
+    )
+  );
+  localStorage.setItem(STORAGE_KEYS.shoppingSyncMigration, "1");
+}
+
+async function migrateLedgerToCloud() {
+  if (localStorage.getItem(STORAGE_KEYS.ledgerSyncMigration) === "1") return;
+  const sync = state.shoppingSync;
+  const { doc, getDocsFromServer, serverTimestamp, setDoc } = sync.services;
+  const [expenseSnapshot, publicFundSnapshot] = await Promise.all([
+    getDocsFromServer(sync.expensesRef),
+    getDocsFromServer(sync.publicFundRef)
+  ]);
+  const cloudExpenseIds = new Set(expenseSnapshot.docs.map((expenseDoc) => expenseDoc.id));
+  const cloudDepositIds = new Set(publicFundSnapshot.docs.map((depositDoc) => depositDoc.id));
+  const missingExpenses = loadExpenses().filter((expense) => !cloudExpenseIds.has(safeCloudDocumentId(expense.id)));
+  const missingDeposits = loadPublicFundDeposits().filter(
+    (deposit) => !cloudDepositIds.has(safeCloudDocumentId(deposit.id))
+  );
+
+  await Promise.all([
+    ...missingExpenses.map((expense) =>
+      setDoc(doc(sync.expensesRef, safeCloudDocumentId(expense.id)), {
+        date: expense.date,
+        category: expense.category,
+        payer: expense.payer,
+        split: expense.split,
+        owner: expense.owner,
+        amount: expense.amount,
+        name: expense.name,
+        note: expense.note,
+        createdAt: localCreatedAtMillis(expense.createdAt),
+        updatedAt: serverTimestamp(),
+        updatedBy: sync.identity
+      })
+    ),
+    ...missingDeposits.map((deposit) =>
+      setDoc(doc(sync.publicFundRef, safeCloudDocumentId(deposit.id)), {
+        date: deposit.date,
+        member: deposit.member,
+        amount: deposit.amount,
+        note: deposit.note,
+        createdAt: localCreatedAtMillis(deposit.createdAt),
+        updatedAt: serverTimestamp(),
+        updatedBy: sync.identity
+      })
+    )
+  ]);
+  localStorage.setItem(STORAGE_KEYS.ledgerSyncMigration, "1");
+}
+
+async function migrateContentToCloud() {
+  const sync = state.shoppingSync;
+  const { doc, getDocFromServer, getDocsFromServer, serverTimestamp, setDoc } = sync.services;
+  const [itinerarySnapshot, memoSnapshot] = await Promise.all([
+    getDocsFromServer(sync.itineraryRef),
+    getDocFromServer(sync.memoRef)
+  ]);
+  const cloudDayKeys = new Set(itinerarySnapshot.docs.map((dayDoc) => dayDoc.id));
+  const dirtyDayKeys = loadItinerarySyncDirtyKeys();
+  const dayWrites = tripDays
+    .filter((day) => !cloudDayKeys.has(day.key) || dirtyDayKeys.has(day.key))
+    .map((day) => {
+      const payload = buildItinerarySyncPayload(day);
+      return setDoc(doc(sync.itineraryRef, day.key), {
+        payload,
+        updatedAt: serverTimestamp(),
+        updatedBy: sync.identity
+      }).then(() => {
+        const currentDay = tripDays.find((item) => item.key === day.key);
+        if (currentDay && buildItinerarySyncPayload(currentDay) === payload) {
+          clearItinerarySyncDirty(day.key);
+        }
+      });
+    });
+
+  const memoText = String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000);
+  const shouldWriteMemo = !memoSnapshot.exists() || localStorage.getItem(STORAGE_KEYS.memoSyncDirty) === "1";
+  const memoWrite = shouldWriteMemo
+    ? setDoc(sync.memoRef, {
+        text: memoText,
+        updatedAt: serverTimestamp(),
+        updatedBy: sync.identity
+      }).then(() => {
+        if (String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000) === memoText) {
+          setMemoSyncDirty(false);
+        }
+      })
+    : Promise.resolve();
+
+  await Promise.all([...dayWrites, memoWrite]);
+  localStorage.setItem(STORAGE_KEYS.contentSyncMigration, "1");
+}
+
+function subscribeShoppingList() {
+  const sync = state.shoppingSync;
+  const { onSnapshot, orderBy, query } = sync.services;
+  disconnectShoppingSubscription();
+  sync.unsubscribe = onSnapshot(
+    query(sync.itemsRef, orderBy("createdAt", "asc")),
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      const items = snapshot.docs.map(cloudShoppingItem).filter((item) => item.name);
+      updateSyncPendingScope("shopping", snapshot);
+      saveShoppingList(items);
+      renderShoppingList();
+      renderShoppingSyncState();
+    },
+    (error) => {
+      setShoppingSyncMessage(`同步讀取失敗：${error.code || error.message}`, true);
+    }
+  );
+}
+
+function subscribeLedger() {
+  const sync = state.shoppingSync;
+  const { onSnapshot, orderBy, query } = sync.services;
+  sync.expenseUnsubscribe?.();
+  sync.publicFundUnsubscribe?.();
+
+  sync.expenseUnsubscribe = onSnapshot(
+    query(sync.expensesRef, orderBy("createdAt", "desc")),
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      const expenses = snapshot.docs.map(cloudExpense).filter((expense) => expense.amount > 0 && expense.name);
+      updateSyncPendingScope("expenses", snapshot);
+      saveExpenses(expenses);
+      renderExpenses();
+      renderPublicFund();
+      renderShoppingSyncState();
+    },
+    (error) => {
+      setShoppingSyncMessage(`記帳同步讀取失敗：${error.code || error.message}`, true);
+    }
+  );
+
+  sync.publicFundUnsubscribe = onSnapshot(
+    query(sync.publicFundRef, orderBy("createdAt", "desc")),
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      const deposits = snapshot.docs.map(cloudPublicFundDeposit).filter((deposit) => deposit.amount > 0);
+      updateSyncPendingScope("publicFund", snapshot);
+      savePublicFundDeposits(deposits);
+      renderPublicFund();
+      renderExpenses();
+      renderShoppingSyncState();
+    },
+    (error) => {
+      setShoppingSyncMessage(`公帳同步讀取失敗：${error.code || error.message}`, true);
+    }
+  );
+}
+
+function subscribeContent() {
+  const sync = state.shoppingSync;
+  const { onSnapshot } = sync.services;
+  sync.itineraryUnsubscribe?.();
+  sync.memoUnsubscribe?.();
+
+  sync.itineraryUnsubscribe = onSnapshot(
+    sync.itineraryRef,
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      updateSyncPendingScope("itinerary", snapshot);
+      const dirtyDayKeys = loadItinerarySyncDirtyKeys();
+      const activeEditorHasFocus =
+        state.editMode && $("#dayDetail")?.contains(document.activeElement);
+      let changed = false;
+
+      snapshot.docs.forEach((dayDoc) => {
+        if (dayDoc.metadata.hasPendingWrites || dirtyDayKeys.has(dayDoc.id)) return;
+        if (activeEditorHasFocus && dayDoc.id === state.activeDay) {
+          sync.deferredItineraryPayloads.set(dayDoc.id, dayDoc.data().payload);
+          return;
+        }
+        sync.deferredItineraryPayloads.delete(dayDoc.id);
+        if (applyItinerarySyncPayload(dayDoc.id, dayDoc.data().payload)) changed = true;
+      });
+
+      if (changed) {
+        writeJson(STORAGE_KEYS.itinerary, tripDays);
+        renderDayNav();
+        renderDayDetail();
+      }
+      renderShoppingSyncState();
+    },
+    (error) => {
+      setShoppingSyncMessage(`行程同步讀取失敗：${error.code || error.message}`, true);
+    }
+  );
+
+  sync.memoUnsubscribe = onSnapshot(
+    sync.memoRef,
+    { includeMetadataChanges: true },
+    (snapshot) => {
+      updateDocumentSyncPendingScope("memo", snapshot);
+      const memo = $("#tripMemo");
+      if (
+        snapshot.exists()
+        && !snapshot.metadata.hasPendingWrites
+        && localStorage.getItem(STORAGE_KEYS.memoSyncDirty) !== "1"
+      ) {
+        const remoteText = String(snapshot.data().text || "").slice(0, 5000);
+        if (memo && document.activeElement === memo) {
+          sync.deferredMemoText = remoteText;
+        } else {
+          localStorage.setItem(STORAGE_KEYS.memo, remoteText);
+          if (memo) memo.value = remoteText;
+          sync.deferredMemoText = null;
+        }
+      }
+      renderShoppingSyncState();
+    },
+    (error) => {
+      setShoppingSyncMessage(`備忘錄同步讀取失敗：${error.code || error.message}`, true);
+    }
+  );
+}
+
+async function connectShoppingSyncUser(user) {
+  const sync = state.shoppingSync;
+  const identity = Object.entries(sync.users).find(([, email]) => email === user.email)?.[0];
+  if (!identity) {
+    await sync.services.signOut(sync.services.auth);
+    setShoppingSyncMessage("這個帳號沒有購物清單權限", true);
+    return;
+  }
+
+  sync.identity = identity;
+  sync.connected = true;
+  renderShoppingSyncState("正在載入共用旅行資料");
+
+  const migrations = await Promise.allSettled([
+    migrateShoppingListToCloud(),
+    migrateLedgerToCloud(),
+    migrateContentToCloud()
+  ]);
+  const failedMigration = migrations.find((result) => result.status === "rejected");
+  if (failedMigration) {
+    setShoppingSyncMessage(`本機資料合併失敗：${failedMigration.reason?.code || failedMigration.reason?.message}`, true);
+  }
+
+  subscribeShoppingList();
+  subscribeLedger();
+  subscribeContent();
+  $("#shoppingSyncPanel").open = false;
+}
+
+async function loginShoppingSync(event) {
+  event.preventDefault();
+  const sync = state.shoppingSync;
+  if (!sync.available) return;
+
+  const identity = $("#shoppingSyncIdentity").value;
+  const passwordInput = $("#shoppingSyncPassword");
+  const password = passwordInput.value;
+  if (!password) {
+    setShoppingSyncMessage("請輸入測試密碼", true);
+    passwordInput.focus();
+    return;
+  }
+
+  $("#shoppingSyncLogin").disabled = true;
+  setShoppingSyncMessage("登入中");
+  try {
+    const email = sync.users[identity];
+    await sync.services.setPersistence(sync.services.auth, sync.services.browserLocalPersistence);
+    await sync.services.signInWithEmailAndPassword(sync.services.auth, email, password);
+    passwordInput.value = "";
+    passwordInput.type = "password";
+    $("#shoppingSyncShowPassword").checked = false;
+  } catch (error) {
+    const message = error.code === "auth/invalid-credential" ? "身分或密碼不正確" : `登入失敗：${error.code || error.message}`;
+    setShoppingSyncMessage(message, true);
+    $("#shoppingSyncLogin").disabled = false;
+  }
+}
+
+async function logoutShoppingSync(silent = false) {
+  const sync = state.shoppingSync;
+  disconnectShoppingSubscription();
+  sync.connected = false;
+  sync.identity = "";
+  if (sync.services?.auth) await sync.services.signOut(sync.services.auth);
+  renderShoppingSyncState(silent ? "" : "已登出，保留這支手機目前的旅行資料");
+}
+
+function handleShoppingSyncWrite(promise, onSuccess) {
+  setShoppingSyncMessage("變更正在同步");
+  return promise
+    .then((result) => {
+      onSuccess?.(result);
+      return result;
+    })
+    .catch((error) => {
+      setShoppingSyncMessage(`同步寫入失敗：${error.code || error.message}`, true);
+      return null;
+    });
+}
+
+function syncItineraryDay(dayKey) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return Promise.resolve(null);
+  const day = tripDays.find((item) => item.key === dayKey);
+  if (!day) return Promise.resolve(null);
+  const payload = buildItinerarySyncPayload(day);
+  if (payload.length > 100000) {
+    setShoppingSyncMessage("本日行程內容過長，已保留本機但尚未同步", true);
+    return Promise.resolve(null);
+  }
+
+  const { doc, serverTimestamp, setDoc } = sync.services;
+  return handleShoppingSyncWrite(
+    setDoc(doc(sync.itineraryRef, dayKey), {
+      payload,
+      updatedAt: serverTimestamp(),
+      updatedBy: sync.identity
+    }),
+    () => {
+      const currentDay = tripDays.find((item) => item.key === dayKey);
+      if (currentDay && buildItinerarySyncPayload(currentDay) === payload) {
+        clearItinerarySyncDirty(dayKey);
+      }
+    }
+  );
+}
+
+function scheduleItinerarySync(dayKey, immediate = false) {
+  markItinerarySyncDirty(dayKey);
+  const sync = state.shoppingSync;
+  const existingTimer = sync.itineraryWriteTimers.get(dayKey);
+  if (existingTimer) clearTimeout(existingTimer);
+  sync.itineraryWriteTimers.delete(dayKey);
+  if (!sync.connected) return;
+
+  if (immediate) {
+    void syncItineraryDay(dayKey);
+    return;
+  }
+  const timer = setTimeout(() => {
+    sync.itineraryWriteTimers.delete(dayKey);
+    void syncItineraryDay(dayKey);
+  }, 600);
+  sync.itineraryWriteTimers.set(dayKey, timer);
+}
+
+function syncTripMemo() {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return Promise.resolve(null);
+  const text = String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000);
+  const { serverTimestamp, setDoc } = sync.services;
+  return handleShoppingSyncWrite(
+    setDoc(sync.memoRef, {
+      text,
+      updatedAt: serverTimestamp(),
+      updatedBy: sync.identity
+    }),
+    () => {
+      if (String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000) === text) {
+        setMemoSyncDirty(false);
+      }
+    }
+  );
+}
+
+function applyDeferredItinerarySync() {
+  const sync = state.shoppingSync;
+  const detail = $("#dayDetail");
+  if (!sync.connected || !detail || detail.contains(document.activeElement)) return;
+  const payload = sync.deferredItineraryPayloads.get(state.activeDay);
+  if (payload === undefined || loadItinerarySyncDirtyKeys().has(state.activeDay)) return;
+  sync.deferredItineraryPayloads.delete(state.activeDay);
+  if (!applyItinerarySyncPayload(state.activeDay, payload)) return;
+  writeJson(STORAGE_KEYS.itinerary, tripDays);
+  renderDayNav();
+  renderDayDetail();
+}
+
+function scheduleTripMemoSync(immediate = false) {
+  const sync = state.shoppingSync;
+  setMemoSyncDirty(true);
+  if (sync.memoWriteTimer) clearTimeout(sync.memoWriteTimer);
+  sync.memoWriteTimer = null;
+  if (!sync.connected) return;
+
+  if (immediate) {
+    void syncTripMemo();
+    return;
+  }
+  sync.memoWriteTimer = setTimeout(() => {
+    sync.memoWriteTimer = null;
+    void syncTripMemo();
+  }, 700);
+}
+
+function flushScheduledContentWrites() {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const dayKeys = [...sync.itineraryWriteTimers.keys()];
+  sync.itineraryWriteTimers.forEach((timer) => clearTimeout(timer));
+  sync.itineraryWriteTimers.clear();
+  dayKeys.forEach((dayKey) => void syncItineraryDay(dayKey));
+  if (sync.memoWriteTimer) {
+    clearTimeout(sync.memoWriteTimer);
+    sync.memoWriteTimer = null;
+    void syncTripMemo();
+  }
+}
+
+function syncShoppingItemCreate(item) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { doc, serverTimestamp, setDoc } = sync.services;
+  const itemId = item.id.replaceAll("/", "_").slice(0, 120);
+  handleShoppingSyncWrite(
+    setDoc(doc(sync.itemsRef, itemId), {
+      text: item.name,
+      done: item.done,
+      createdAt: Date.now(),
+      updatedAt: serverTimestamp(),
+      updatedBy: sync.identity
+    })
+  );
+}
+
+function syncShoppingItemUpdate(item) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { doc, serverTimestamp, updateDoc } = sync.services;
+  handleShoppingSyncWrite(
+    updateDoc(doc(sync.itemsRef, item.id), {
+      done: item.done,
+      updatedAt: serverTimestamp(),
+      updatedBy: sync.identity
+    })
+  );
+}
+
+function syncShoppingItemDelete(itemId) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { deleteDoc, doc } = sync.services;
+  handleShoppingSyncWrite(deleteDoc(doc(sync.itemsRef, itemId)));
+}
+
+function syncExpenseCreate(expense) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { doc, serverTimestamp, setDoc } = sync.services;
+  handleShoppingSyncWrite(
+    setDoc(doc(sync.expensesRef, safeCloudDocumentId(expense.id)), {
+      date: expense.date,
+      category: expense.category,
+      payer: expense.payer,
+      split: expense.split,
+      owner: expense.owner,
+      amount: expense.amount,
+      name: expense.name,
+      note: expense.note,
+      createdAt: localCreatedAtMillis(expense.createdAt),
+      updatedAt: serverTimestamp(),
+      updatedBy: sync.identity
+    })
+  );
+}
+
+function syncExpenseDelete(expenseId) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { deleteDoc, doc } = sync.services;
+  handleShoppingSyncWrite(deleteDoc(doc(sync.expensesRef, safeCloudDocumentId(expenseId))));
+}
+
+function syncPublicFundDepositCreate(deposit) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { doc, serverTimestamp, setDoc } = sync.services;
+  handleShoppingSyncWrite(
+    setDoc(doc(sync.publicFundRef, safeCloudDocumentId(deposit.id)), {
+      date: deposit.date,
+      member: deposit.member,
+      amount: deposit.amount,
+      note: deposit.note,
+      createdAt: localCreatedAtMillis(deposit.createdAt),
+      updatedAt: serverTimestamp(),
+      updatedBy: sync.identity
+    })
+  );
+}
+
+function syncPublicFundDepositDelete(depositId) {
+  const sync = state.shoppingSync;
+  if (!sync.connected) return;
+  const { deleteDoc, doc } = sync.services;
+  handleShoppingSyncWrite(deleteDoc(doc(sync.publicFundRef, safeCloudDocumentId(depositId))));
+}
+
+async function initShoppingSync() {
+  $("#shoppingSyncForm").addEventListener("submit", loginShoppingSync);
+  $("#shoppingSyncLogout").addEventListener("click", () => logoutShoppingSync());
+  $("#shoppingSyncShowPassword").addEventListener("change", (event) => {
+    $("#shoppingSyncPassword").type = event.target.checked ? "text" : "password";
+  });
+  window.addEventListener("pagehide", flushScheduledContentWrites);
+  renderShoppingSyncState("正在檢查同步設定");
+
+  try {
+    const configUrl = new URL("./firebase-config.js", window.location.href);
+    const configResponse = await fetch(configUrl, { cache: "no-store" });
+    const contentType = configResponse.headers.get("content-type") || "";
+    if (!configResponse.ok || !contentType.includes("javascript")) throw new Error("sync-not-configured");
+
+    const [configModule, appModule, authModule, firestoreModule] = await Promise.all([
+      import(configUrl.href),
+      import("https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js"),
+      import("https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js")
+    ]);
+    const firebaseApp = appModule.initializeApp(configModule.firebaseConfig, "okayama-shopping-sync");
+    const auth = authModule.getAuth(firebaseApp);
+    let db;
+    try {
+      db = firestoreModule.initializeFirestore(firebaseApp, {
+        localCache: firestoreModule.persistentLocalCache({
+          tabManager: firestoreModule.persistentMultipleTabManager()
+        })
+      });
+    } catch {
+      db = firestoreModule.getFirestore(firebaseApp);
+    }
+
+    Object.assign(state.shoppingSync, {
+      available: true,
+      services: {
+        ...authModule,
+        ...firestoreModule,
+        auth,
+        db
+      },
+      users: configModule.shoppingSyncUsers,
+      itemsRef: firestoreModule.collection(db, "trips", "okayama-sync-test", "items"),
+      expensesRef: firestoreModule.collection(db, "trips", "okayama-sync-test", "expenses"),
+      publicFundRef: firestoreModule.collection(db, "trips", "okayama-sync-test", "publicFund"),
+      itineraryRef: firestoreModule.collection(db, "trips", "okayama-sync-test", "itinerary"),
+      memoRef: firestoreModule.doc(db, "trips", "okayama-sync-test", "meta", "tripMemo")
+    });
+    renderShoppingSyncState();
+
+    state.shoppingSync.authUnsubscribe = authModule.onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await connectShoppingSyncUser(user);
+      } else {
+        disconnectShoppingSubscription();
+        state.shoppingSync.connected = false;
+        state.shoppingSync.identity = "";
+        renderShoppingSyncState();
+      }
+    });
+  } catch (error) {
+    state.shoppingSync.available = false;
+    renderShoppingSyncState();
+    if (error.message !== "sync-not-configured") {
+      setShoppingSyncMessage("目前無法載入同步服務，購物清單維持本機模式", true);
+    }
+  }
 }
 
 function getWalletStatus(percentage, itemCount) {
@@ -1553,15 +2456,18 @@ function renderShoppingList() {
       item.done = input.checked;
       saveShoppingList(updated);
       renderShoppingList();
+      syncShoppingItemUpdate(item);
     });
   });
 
   $all("[data-shopping-delete]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.expandedShoppingImages.delete(button.dataset.shoppingDelete);
-      const updated = loadShoppingList().filter((item) => item.id !== button.dataset.shoppingDelete);
+      const itemId = button.dataset.shoppingDelete;
+      state.expandedShoppingImages.delete(itemId);
+      const updated = loadShoppingList().filter((item) => item.id !== itemId);
       saveShoppingList(updated);
       renderShoppingList();
+      syncShoppingItemDelete(itemId);
     });
   });
 
@@ -1590,15 +2496,17 @@ function addShoppingItem(event) {
   const name = input.value.trim();
   if (!name) return;
   const items = loadShoppingList();
-  items.push({
+  const item = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name,
     done: false,
     image: ""
-  });
+  };
+  items.push(item);
   saveShoppingList(items);
   input.value = "";
   renderShoppingList();
+  syncShoppingItemCreate(item);
   input.focus();
 }
 
@@ -1710,6 +2618,7 @@ function addPublicFundDeposit(event) {
   const deposits = loadPublicFundDeposits();
   deposits.unshift(deposit);
   savePublicFundDeposits(deposits);
+  syncPublicFundDepositCreate(deposit);
 
   event.currentTarget.reset();
   $("#publicFundDate").value = deposit.date;
@@ -1721,6 +2630,7 @@ function addPublicFundDeposit(event) {
 
 function deletePublicFundDeposit(id) {
   savePublicFundDeposits(loadPublicFundDeposits().filter((deposit) => deposit.id !== id));
+  syncPublicFundDepositDelete(id);
   renderPublicFund();
   renderExpenses();
 }
@@ -1749,18 +2659,18 @@ function renderPublicFund() {
   `;
 
   if (fund.balance < 0) {
-    const actions = closure.members
-      .map(({ member, action }) => {
-        if (action > 0.5) return `${member} 應補 ${formatYen(action)}`;
-        if (action < -0.5) return `${member} 多投入 ${formatYen(Math.abs(action))}`;
-        return `${member} 已平衡`;
-      })
+    const topUps = expenseMembers
+      .map((member) => `${member} ${formatYen(closure.topUpShares[member])}`)
       .join("，");
     $("#publicFundStatus").className = "public-fund-status warning";
-    $("#publicFundStatus").textContent = `公帳不足 ${formatYen(Math.abs(fund.balance))} · ${actions}`;
+    $("#publicFundStatus").textContent =
+      `公帳不足 ${formatYen(Math.abs(fund.balance))} · 每人先補：${topUps} · ${closure.settlementText}`;
   } else if (fund.balance > 0) {
+    const refunds = expenseMembers
+      .map((member) => `${member} ${formatYen(closure.refundShares[member])}`)
+      .join("，");
     $("#publicFundStatus").className = "public-fund-status ready";
-    $("#publicFundStatus").textContent = `餘額每人退 ${formatYen(closure.refundShare)} · ${closure.settlementText}`;
+    $("#publicFundStatus").textContent = `公帳剩餘 ${formatYen(fund.balance)} · 退回：${refunds} · ${closure.settlementText}`;
   } else {
     $("#publicFundStatus").className = "public-fund-status";
     $("#publicFundStatus").textContent = fund.totalDeposits
@@ -1903,6 +2813,7 @@ function addExpense(event) {
   const expenses = loadExpenses();
   expenses.unshift(expense);
   saveExpenses(expenses);
+  syncExpenseCreate(expense);
 
   event.currentTarget.reset();
   $("#expenseDate").value = expense.date;
@@ -1918,6 +2829,7 @@ function addExpense(event) {
 
 function deleteExpense(id) {
   saveExpenses(loadExpenses().filter((expense) => expense.id !== id));
+  syncExpenseDelete(id);
   renderExpenses();
   renderPublicFund();
 }
@@ -1944,7 +2856,15 @@ function renderExpenses() {
   const publicAccountPaid = filtered
     .filter((expense) => expense.payer === publicExpenseAccount)
     .reduce((sum, expense) => sum + expense.amount, 0);
-  const sharePerPerson = groupTotal / expenseMembers.length;
+  const filteredDirectSettlement = calculateTripSettlement(filtered);
+  const filteredPublicFund = calculatePublicFund(filtered, []);
+  const groupShares = Object.fromEntries(
+    expenseMembers.map((member) => [
+      member,
+      filteredDirectSettlement.members.find((item) => item.member === member).share
+        + filteredPublicFund.sharedExpenseShares[member]
+    ])
+  );
   const categoryTotals = expenseCategories.map((category) => [
     category,
     filtered.filter((expense) => expense.category === category).reduce((sum, expense) => sum + expense.amount, 0)
@@ -1958,6 +2878,16 @@ function renderExpenses() {
     expenses.filter((expense) => expense.payer === payer).reduce((sum, expense) => sum + expense.amount, 0)
   ]);
   const settlement = calculateTripSettlement(expenses);
+  const overallSettlement = calculateOverallSettlement(expenses, loadPublicFundDeposits());
+  const hasPublicFundActivity =
+    overallSettlement.publicFund.totalDeposits > 0 || overallSettlement.publicFund.totalExpenses > 0;
+  const publicFundAdjustmentText = overallSettlement.publicFund.balance > 0
+    ? `公帳先退回：${expenseMembers.map((member) => `${member} ${formatYen(overallSettlement.publicClosure.refundShares[member])}`).join("，")}`
+    : overallSettlement.publicFund.balance < 0
+      ? `公帳先補：${expenseMembers.map((member) => `${member} ${formatYen(overallSettlement.publicClosure.topUpShares[member])}`).join("，")}`
+      : hasPublicFundActivity
+        ? "公帳餘額已歸零"
+        : "";
   const recentExpenses = expenses.slice(0, 5);
   const recentTotal = recentExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -1968,7 +2898,7 @@ function renderExpenses() {
 
   $("#expenseSummary").innerHTML = `
     <section class="ledger-ticket" aria-label="旅行付款摘要">
-      <div class="ledger-ticket-topline"><span>TRIP LEDGER</span><span>8/13-8/19</span></div>
+      <div class="ledger-ticket-topline"><span>TRIP LEDGER</span><span>${state.shoppingSync.connected ? `${escapeHtml(state.shoppingSync.identity)} SYNC` : "LOCAL"}</span></div>
       <div class="ledger-payer-grid">
         ${allPayerTotals
           .map(
@@ -1979,24 +2909,26 @@ function renderExpenses() {
           .join("")}
       </div>
       <div class="ledger-settlement">
-        ${settlement.members
+        ${overallSettlement.members
           .map(({ member, balance }) => {
-            const label = balance > 0.5 ? "結清應收" : balance < -0.5 ? "結清應付" : "已結清";
+            const label = balance > 0 ? "整趟應收" : balance < 0 ? "整趟應付" : "已結清";
             return `<div><span>${escapeHtml(member)} ${label}</span><strong>${formatYen(Math.abs(balance))}</strong></div>`;
           })
           .join("")}
       </div>
+      ${publicFundAdjustmentText ? `<div class="ledger-fund-note">${escapeHtml(publicFundAdjustmentText)}</div>` : ""}
     </section>
   `;
 
   $("#expenseDetailSummary").innerHTML = `
-    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong>${renderTwdEstimate(total)}<span class="meta">這支手機上的全部記帳</span></div>
+    <div class="stat"><span>總支出</span><strong>${formatYen(total)}</strong>${renderTwdEstimate(total)}<span class="meta">${state.shoppingSync.connected ? "兩人同步的全部記帳" : "這支手機上的全部記帳"}</span></div>
     <div class="stat"><span>目前日期</span><strong>${formatYen(activeDayTotal)}</strong>${renderTwdEstimate(activeDayTotal)}<span class="meta">${escapeHtml(activeExpenseDate || "未選日期")}</span></div>
     <div class="stat"><span>目前篩選</span><strong>${formatYen(filteredTotal)}</strong>${renderTwdEstimate(filteredTotal)}<span class="meta">${filtered.length} 筆</span></div>
-    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong>${renderTwdEstimate(groupTotal)}<span class="meta">兩人各分攤 ${formatYen(sharePerPerson)}</span></div>
+    <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong>${renderTwdEstimate(groupTotal)}<span class="meta">XUN ${formatYen(groupShares.XUN)}／UT ${formatYen(groupShares.UT)}</span></div>
     <div class="stat"><span>個人支出</span><strong>${formatYen(personalTotal)}</strong>${renderTwdEstimate(personalTotal)}<span class="meta">不分帳項目</span></div>
     <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong>${renderTwdEstimate(publicAccountPaid)}<span class="meta">目前篩選結果</span></div>
-    <div class="stat"><span>兩人結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">只計 XUN / UT 直接代付的共同分帳</span></div>
+    <div class="stat"><span>直接代付結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">只計 XUN / UT 直接代付的共同分帳</span></div>
+    <div class="stat"><span>整趟最終結算</span><strong>${escapeHtml(overallSettlement.settlementText)}</strong><span class="meta">已合併直接代付、公帳投入、公帳支出與餘額調整</span></div>
     <div class="expense-breakdown payer-breakdown" aria-label="付款人小計">
       ${payerTotals
         .map(
@@ -2014,9 +2946,9 @@ function renderExpenses() {
       ${settlement.members
         .map(
           ({ member, paid, share, balance }) => {
-            const result = balance > 0.5
+            const result = balance > 0
               ? `結清後應收 ${formatYen(balance)}`
-              : balance < -0.5
+              : balance < 0
                 ? `結清後應付 ${formatYen(Math.abs(balance))}`
                 : "結清後無需收付";
             return `
@@ -2081,7 +3013,7 @@ function renderExpenses() {
           `
         )
         .join("")
-    : `<p class="empty-state">還沒有符合條件的記帳。新增一筆後會存在這支手機的 Safari 網站資料裡。</p>`;
+    : `<p class="empty-state">還沒有符合條件的記帳。${state.shoppingSync.connected ? "新增後會同步到兩人的共用帳本。" : "新增後會存在這支手機的 Safari 網站資料裡。"}</p>`;
 
   $all(".expense-delete").forEach((button) => {
     button.addEventListener("click", () => deleteExpense(button.dataset.expenseId));
@@ -2161,7 +3093,7 @@ function exportExpensesCsv() {
 function buildLocalBackup() {
   return {
     app: "okayama-travel-app",
-    version: 5,
+    version: 6,
     exportedAt: new Date().toISOString(),
     data: {
       itinerary: tripDays,
@@ -2189,7 +3121,12 @@ function restoreLocalBackup(backup) {
   writeJson(STORAGE_KEYS.itinerary, data.itinerary);
   writeJson(STORAGE_KEYS.checklist, data.checklist || {});
   writeJson(STORAGE_KEYS.shopping, Array.isArray(data.shopping) ? data.shopping : []);
-  localStorage.setItem(STORAGE_KEYS.memo, String(data.memo || ""));
+  localStorage.removeItem(STORAGE_KEYS.shoppingSyncMigration);
+  localStorage.removeItem(STORAGE_KEYS.ledgerSyncMigration);
+  localStorage.removeItem(STORAGE_KEYS.contentSyncMigration);
+  localStorage.setItem(STORAGE_KEYS.memo, String(data.memo || "").slice(0, 5000));
+  writeJson(STORAGE_KEYS.itinerarySyncDirty, data.itinerary.map((day) => day.key));
+  setMemoSyncDirty(true);
   writeJson(STORAGE_KEYS.expenses, data.expenses);
   writeJson(STORAGE_KEYS.publicFund, Array.isArray(data.publicFund) ? data.publicFund : []);
   if (data.exchangeRate && typeof data.exchangeRate === "object") {
@@ -2218,6 +3155,7 @@ async function importLocalBackup(file) {
   try {
     const backup = JSON.parse(await file.text());
     if (!confirm("匯入備份會覆蓋這支手機目前的行程修改、記帳、公帳、購物清單與備忘錄，要繼續嗎？")) return;
+    if (state.shoppingSync.connected) await logoutShoppingSync(true);
     restoreLocalBackup(backup);
     alert("備份已匯入。");
   } catch {
@@ -2232,16 +3170,37 @@ function initTripMemo() {
   if (!memo) return;
   memo.value = localStorage.getItem(STORAGE_KEYS.memo) || "";
   memo.addEventListener("input", () => {
-    localStorage.setItem(STORAGE_KEYS.memo, memo.value);
+    const text = memo.value.slice(0, 5000);
+    localStorage.setItem(STORAGE_KEYS.memo, text);
+    scheduleTripMemoSync();
+  });
+  memo.addEventListener("blur", () => {
+    const sync = state.shoppingSync;
+    if (localStorage.getItem(STORAGE_KEYS.memoSyncDirty) === "1") {
+      sync.deferredMemoText = null;
+      scheduleTripMemoSync(true);
+      return;
+    }
+    if (sync.deferredMemoText !== null) {
+      memo.value = sync.deferredMemoText;
+      localStorage.setItem(STORAGE_KEYS.memo, sync.deferredMemoText);
+      sync.deferredMemoText = null;
+    }
   });
 }
 
 async function clearLocalData() {
   if (!confirm("清除這支手機上的行程修改、記帳、公帳、購物清單與離線快取？")) return;
+  if (state.shoppingSync.connected) await logoutShoppingSync(true);
   localStorage.removeItem(STORAGE_KEYS.itinerary);
   localStorage.removeItem(STORAGE_KEYS.checklist);
   localStorage.removeItem(STORAGE_KEYS.shopping);
   localStorage.removeItem(STORAGE_KEYS.shoppingSeed);
+  localStorage.removeItem(STORAGE_KEYS.shoppingSyncMigration);
+  localStorage.removeItem(STORAGE_KEYS.ledgerSyncMigration);
+  localStorage.removeItem(STORAGE_KEYS.contentSyncMigration);
+  localStorage.removeItem(STORAGE_KEYS.itinerarySyncDirty);
+  localStorage.removeItem(STORAGE_KEYS.memoSyncDirty);
   localStorage.removeItem(STORAGE_KEYS.memo);
   localStorage.removeItem(STORAGE_KEYS.expenses);
   localStorage.removeItem(STORAGE_KEYS.weather);
@@ -2279,12 +3238,16 @@ function init() {
     syncEditButton();
     renderDayDetail();
   });
+  $("#dayDetail").addEventListener("focusout", () => {
+    setTimeout(applyDeferredItinerarySync);
+  });
   $("#clearLocalData").addEventListener("click", clearLocalData);
   $("#exportExpensesCsv").addEventListener("click", exportExpensesCsv);
   $("#exportBackup").addEventListener("click", exportLocalBackup);
   $("#importBackup").addEventListener("click", () => $("#backupFileInput").click());
   $("#backupFileInput").addEventListener("change", (event) => importLocalBackup(event.target.files?.[0]));
   $("#shoppingForm").addEventListener("submit", addShoppingItem);
+  void initShoppingSync();
 
   renderDayNav();
   syncEditButton();

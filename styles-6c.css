@@ -545,6 +545,169 @@ summary:focus-visible {
 }
 
 /* Shopping */
+.shopping-sync-panel {
+  margin-bottom: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.shopping-sync-panel summary {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.shopping-sync-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.shopping-sync-panel[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.shopping-sync-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.shopping-sync-icon svg,
+.shopping-sync-chevron {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.shopping-sync-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.shopping-sync-copy .eyebrow {
+  margin: 0;
+  font-size: 0.62rem;
+}
+
+.shopping-sync-copy strong {
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.shopping-sync-copy small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.shopping-sync-chevron {
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.shopping-sync-panel[open] .shopping-sync-chevron {
+  transform: rotate(180deg);
+}
+
+.shopping-sync-panel.is-connected .shopping-sync-icon {
+  color: #ffffff;
+  background: var(--teal);
+}
+
+.shopping-sync-content {
+  padding: 12px;
+}
+
+.shopping-sync-fields {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.7fr) minmax(0, 1.3fr);
+  gap: 8px;
+}
+
+.shopping-sync-fields label {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.shopping-sync-fields input,
+.shopping-sync-fields select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: #ffffff;
+  font: inherit;
+}
+
+.shopping-sync-password-toggle {
+  width: fit-content;
+  min-height: 38px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.shopping-sync-password-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--teal);
+}
+
+.shopping-sync-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.shopping-sync-actions .text-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.shopping-sync-actions .primary-action {
+  border-color: var(--teal);
+  color: #ffffff;
+  background: var(--teal);
+}
+
+.shopping-sync-message {
+  min-height: 20px;
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.shopping-sync-message.error {
+  color: var(--vermilion);
+}
+
 .wallet-progress {
   margin-bottom: 12px;
   padding: 14px 15px 13px;
@@ -1922,6 +2085,10 @@ summary:focus-visible {
     padding: 0 10px;
   }
 
+  .shopping-sync-fields {
+    grid-template-columns: 1fr;
+  }
+
   .trip-data-tools-content {
     grid-template-columns: 1fr;
   }
@@ -2754,6 +2921,15 @@ summary:focus-visible {
   color: var(--yellow);
   font-size: 0.86rem;
   font-variant-numeric: tabular-nums;
+}
+
+.ledger-fund-note {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px dashed #76938d;
+  color: var(--ticket-muted);
+  font-size: 0.62rem;
+  line-height: 1.5;
 }
 
 #expenses .public-fund-panel {
