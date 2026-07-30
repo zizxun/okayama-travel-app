@@ -1,10 +1,10 @@
-const CACHE_NAME = "okayama-trip-v43";
+const CACHE_NAME = "okayama-trip-v44";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=41",
-  "./styles-6c.css?v=43",
-  "./app.js?v=43",
+  "./styles-6c.css?v=44",
+  "./app.js?v=44",
   "./firebase-config.js",
   "./manifest.webmanifest",
   "./assets/kansai_hiroshima_map.jpg",

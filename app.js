@@ -115,20 +115,24 @@ const days = [
     theme: "岡山城、後樂園、表町",
     pass: "Pass Day 4",
     passCovered: true,
-    summary: "市電只搭岡山站前到城下、縣廳通到岡山站前兩趟，單程 ¥160、合計 ¥320。搭配岡山城＋後樂園共通券 ¥800 時，一日券 ¥400 反而每人多 ¥80，因此不用特別購買。市電不在 JR Pass 範圍。",
+    summary: "10:30 從飯店出發，搭市電到城下後步行到ひとり鍋 megu，11:00 吃預約午餐。下午依序走岡山城、後樂園、岡山神社與表町商店街；市電去回各 ¥160、合計 ¥320，不需購買一日券，JR Pass 不涵蓋。",
     schedule: [
-      ["08:45", "岡山站前搭東山線到城下站（¥160）", { mode: "岡山市電", from: "岡山駅前", to: "城下（岡山）", note: "東山線；IC 或現金，JR Pass 不涵蓋" }],
-      ["09:00-10:20", "岡山城天守"],
-      ["10:20-11:40", "岡山後樂園；岡山城＋後樂園共通券 ¥800"],
-      ["11:40-12:20", "岡山後樂園步行到岡山神社：找蕾絲編織岡山城御守", { mode: "步行", from: "岡山後楽園", to: "岡山神社 岡山県岡山市北区石関町2-33", note: "現址在石關町，不在岡山城內", travelMode: "walking" }],
-      ["12:30-13:40", "午餐：司味野村豬排定食或 Uoya Taisho 魚や大将"],
-      ["13:50-16:40", "表町商店街、天滿屋、岡山木村屋、無印良品"],
-      ["17:00", "縣廳通站返回岡山站前（¥160）", { mode: "岡山市電", from: "県庁通り（岡山）", to: "岡山駅前", note: "東山線；IC 或現金，JR Pass 不涵蓋" }],
-      ["晚上", "預約壽喜燒晚餐"]
+      ["10:30", "飯店出發，步行到岡山站前電停", { mode: "步行", from: "ダイワロイネットホテル岡山駅前", to: "岡山駅前 電停", note: "預留找月台與等車時間", travelMode: "walking" }],
+      ["10:40", "岡山站前搭東山線到城下站（¥160）", { mode: "岡山市電", from: "岡山駅前", to: "城下（岡山）", note: "城下下車後步行約 5 分；IC 或現金，JR Pass 不涵蓋" }],
+      ["11:00-12:15", "預約午餐：Shabu-shabu Sukiyaki Hitorinabe Megu（11:00-14:00／L.O. 13:30）", { mode: "步行", from: "城下（岡山）", to: "しゃぶしゃぶ すき焼き ひとり鍋 恵", note: "城下電停步行約 5 分；建議預約 11:00", travelMode: "walking" }],
+      ["12:15-12:30", "ひとり鍋 megu 步行到岡山城", { mode: "步行", from: "しゃぶしゃぶ すき焼き ひとり鍋 恵", to: "岡山城", note: "約 15 分；炎熱時補水", travelMode: "walking" }],
+      ["12:30-13:45", "岡山城天守；岡山城＋後樂園共通券 ¥800"],
+      ["13:45-14:00", "岡山城經月見橋步行到岡山後樂園", { mode: "步行", from: "岡山城", to: "岡山後楽園", note: "依現場入口與橋梁動線前往", travelMode: "walking" }],
+      ["14:00-15:20", "岡山後樂園：庭園、借景與休息"],
+      ["15:20-15:40", "後樂園步行到岡山神社", { mode: "步行", from: "岡山後楽園", to: "岡山神社 岡山県岡山市北区石関町2-33", note: "岡山神社在石關町，不在岡山城內", travelMode: "walking" }],
+      ["15:40-16:05", "岡山神社：找蕾絲編織御守"],
+      ["16:05-17:50", "表町商店街、天滿屋、岡山木村屋、無印良品", { mode: "步行", from: "岡山神社 岡山県岡山市北区石関町2-33", to: "岡山 表町商店街", note: "天滿屋通常 19:30、表町無印通常 19:00 打烊", travelMode: "walking" }],
+      ["18:00-19:20", "表町商店街晚餐：現場挑選；週一備案為太陽の時代或麺酒一照庵"],
+      ["19:30", "表町一帶搭市電返回岡山站前（¥160）", { mode: "岡山市電／步行", from: "岡山 表町商店街", to: "岡山駅", note: "依晚餐位置從縣廳通、西大寺町或郵便局前上車；JR Pass 不涵蓋" }]
     ],
-    route: ["岡山站前 → 城下：岡電東山線 ¥160", "岡山城 → 後樂園 → 岡山神社：步行", "岡山神社 → 表町商店街：步行", "縣廳通 → 岡山站前：岡電東山線 ¥160"],
-    meals: ["Uoya Taisho 魚や大将", "司味野村豬排定食", "壽喜燒（需預約）"],
-    backup: ["柳川站：麺酒一照庵 岡山本店", "下雨就縮短後樂園，改岡山城、表町與天滿屋", "訂不到壽喜燒就回岡山站或永旺"]
+    route: ["飯店 → 岡山站前電停：步行", "岡山站前 → 城下：岡電東山線 ¥160", "城下 → ひとり鍋 megu：步行約 5 分", "megu → 岡山城 → 後樂園 → 岡山神社 → 表町：全程步行", "表町 → 岡山站前：依晚餐位置搭岡山市電 ¥160"],
+    meals: ["午餐：Shabu-shabu Sukiyaki Hitorinabe Megu（11:00-14:00／L.O. 13:30，需預約）", "晚餐：表町商店街現場選擇", "月島もんじゃ 太陽の時代 表町店（週一 17:00-23:00）", "麺酒一照庵 岡山本店（週一 11:00-23:30）"],
+    backup: ["下雨就縮短後樂園，優先岡山城、天滿屋與表町有屋頂區域", "太熱就把岡山神社縮短為 15 分，後樂園內安排一次室內休息", "魚や大将與味司野村週一公休，不排在 8/17"]
   },
   {
     key: "0818",
@@ -227,13 +231,14 @@ const dayMapQueries = {
   ],
   "0817": [
     ["飯店", "ダイワロイネットホテル岡山駅前"],
+    ["ひとり鍋 megu", "しゃぶしゃぶ すき焼き ひとり鍋 恵"],
     ["岡山城", "岡山城"],
     ["岡山後樂園", "岡山後楽園"],
-    ["表町商店街", "岡山 表町商店街"],
     ["岡山神社", "岡山神社 岡山県岡山市北区石関町2-33"],
+    ["表町商店街", "岡山 表町商店街"],
+    ["岡山站", "岡山駅"],
     ["天滿屋", "天満屋 岡山本店", false],
-    ["司味野村", "味司野村 岡山", false],
-    ["魚や大将", "魚や大将 岡山", false],
+    ["太陽の時代", "月島もんじゃ 太陽の時代 表町店", false],
     ["一照庵", "麺酒一照庵 岡山本店", false]
   ],
   "0818": [
@@ -271,7 +276,7 @@ const budgetItems = [
   ["8/15", "桃太郎線", "岡山 -> 吉備津一帶", "Pass 覆蓋", "0", "熱時可搭短程計程車"],
   ["8/16", "岡山 -> 倉敷", "JR 來回", "Pass 覆蓋", "0", "山陽本線"],
   ["8/16", "大原美術館", "選配門票", "另付", "2000", "雨天/高溫備案"],
-  ["8/17", "岡山市電往返", "岡山站前 -> 城下／縣廳通 -> 岡山站前", "另付", "320", "單程 ¥160；搭配共通券時一日券不划算"],
+  ["8/17", "岡山市電往返", "岡山站前 -> 城下／表町一帶 -> 岡山站前", "另付", "320", "單程 ¥160；一日券不划算"],
   ["8/17", "後樂園 + 岡山城", "共通券", "另付", "800", "成人"],
   ["8/18", "岡山 -> 廣島", "新幹線來回", "Pass 覆蓋", "0", "Pass 最後一天"],
   ["8/18", "廣島市內交通", "廣電市電", "另付", "240-500", "依搭乘次數"],
@@ -332,6 +337,7 @@ const STORAGE_KEYS = {
   shoppingSyncMigration: "okayamaShoppingSyncMigrationV3",
   ledgerSyncMigration: "okayamaLedgerSyncMigrationV1",
   contentSyncMigration: "okayamaContentSyncMigrationV1",
+  day17MeguRevision: "okayamaDay17MeguRevisionV1",
   itinerarySyncDirty: "okayamaItinerarySyncDirtyV1",
   memoSyncDirty: "okayamaMemoSyncDirtyV1",
   memo: "okayamaTripMemo",
@@ -371,7 +377,7 @@ const itineraryTicketMeta = {
   "0814": { headline: "今天去宮島", from: "岡山", fromEn: "OKAYAMA", to: "宮島", toEn: "MIYAJIMA" },
   "0815": { headline: "今天去姬路與吉備津", from: "岡山", fromEn: "OKAYAMA", to: "姬路", toEn: "HIMEJI" },
   "0816": { headline: "今天去倉敷", from: "岡山", fromEn: "OKAYAMA", to: "倉敷", toEn: "KURASHIKI" },
-  "0817": { headline: "今天遊岡山市區", from: "岡山站", fromEn: "OKAYAMA", to: "岡山城", toEn: "OKAYAMA CASTLE" },
+  "0817": { headline: "午餐後遊岡山市區", from: "岡山站", fromEn: "OKAYAMA", to: "ひとり鍋 megu", toEn: "HITORINABE MEGU" },
   "0818": { headline: "今天去廣島", from: "岡山", fromEn: "OKAYAMA", to: "廣島", toEn: "HIROSHIMA" },
   "0819": { headline: "今天從岡山回家", from: "岡山", fromEn: "OKAYAMA", to: "岡山機場", toEn: "OKAYAMA AIRPORT" }
 };
@@ -590,19 +596,34 @@ function migrateStoredTripDays(saved) {
   return migrated;
 }
 
+function applyDay17MeguRevision(loadedDays) {
+  if (localStorage.getItem(STORAGE_KEYS.day17MeguRevision) === "1") return loadedDays;
+
+  const revised = clone(loadedDays);
+  const day17 = revised.find((day) => day.key === "0817");
+  const defaultDay17 = days.find((day) => day.key === "0817");
+  if (day17 && defaultDay17) {
+    Object.assign(day17, clone(defaultDay17));
+    markItinerarySyncDirty("0817");
+  }
+  localStorage.setItem(STORAGE_KEYS.day17MeguRevision, "1");
+  return revised;
+}
+
 function loadTripDays() {
   const saved = readJson(STORAGE_KEYS.itinerary, null);
-  if (!Array.isArray(saved) || saved.length !== days.length) return clone(days);
-
   const defaultKeys = days.map((day) => day.key).join("|");
-  const savedKeys = saved.map((day) => day.key).join("|");
-  if (defaultKeys !== savedKeys) return clone(days);
+  const savedKeys = Array.isArray(saved) ? saved.map((day) => day.key).join("|") : "";
+  const loaded =
+    Array.isArray(saved) && saved.length === days.length && defaultKeys === savedKeys
+      ? migrateStoredTripDays(saved)
+      : clone(days);
+  const revised = applyDay17MeguRevision(loaded);
 
-  const migrated = migrateStoredTripDays(saved);
-  if (JSON.stringify(migrated) !== JSON.stringify(saved)) {
-    writeJson(STORAGE_KEYS.itinerary, migrated);
+  if (JSON.stringify(revised) !== JSON.stringify(saved)) {
+    writeJson(STORAGE_KEYS.itinerary, revised);
   }
-  return migrated;
+  return revised;
 }
 
 function saveTripDays(dayKey = state.activeDay, immediate = false) {
