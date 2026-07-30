@@ -319,15 +319,17 @@ const bundledShoppingItems = [
   ["bundled-shopping-035", "Melano CC", "./assets/shopping/shopping-035.webp"],
   ["bundled-shopping-036", "NB包包", "./assets/shopping/shopping-036.webp"],
   ["bundled-shopping-037", "tutuanna可愛袖套", "./assets/shopping/shopping-037.webp"],
-  ["bundled-shopping-038", "UQ 衣服", "./assets/shopping/shopping-038.webp"]
+  ["bundled-shopping-038", "UQ 衣服", "./assets/shopping/shopping-038.webp"],
+  ["bundled-shopping-039", "背後痘痘", "./assets/shopping/shopping-039.webp"],
+  ["bundled-shopping-040", "眼膜", "./assets/shopping/shopping-040.webp"]
 ].map(([id, name, image]) => ({ id, name, image }));
 
 const STORAGE_KEYS = {
   itinerary: "okayamaItineraryV3",
   checklist: "okayamaChecklist",
   shopping: "okayamaShoppingListV1",
-  shoppingSeed: "okayamaShoppingSeedV3",
-  shoppingSyncMigration: "okayamaShoppingSyncMigrationV2",
+  shoppingSeed: "okayamaShoppingSeedV4",
+  shoppingSyncMigration: "okayamaShoppingSyncMigrationV3",
   ledgerSyncMigration: "okayamaLedgerSyncMigrationV1",
   contentSyncMigration: "okayamaContentSyncMigrationV1",
   itinerarySyncDirty: "okayamaItinerarySyncDirtyV1",
@@ -2498,6 +2500,8 @@ function renderShoppingList() {
   $all("[data-shopping-delete]").forEach((button) => {
     button.addEventListener("click", () => {
       const itemId = button.dataset.shoppingDelete;
+      const item = loadShoppingList().find((entry) => entry.id === itemId);
+      if (!item || !confirm(`確定要刪除「${item.name}」嗎？`)) return;
       state.expandedShoppingImages.delete(itemId);
       const updated = loadShoppingList().filter((item) => item.id !== itemId);
       saveShoppingList(updated);

@@ -3476,3 +3476,11 @@ summary:focus-visible {
     grid-column: auto;
   }
 }
+
+@media (max-width: 860px) {
+  #expenses input,
+  #expenses select,
+  #expenses textarea {
+    font-size: 16px;
+  }
+}

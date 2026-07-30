@@ -1,10 +1,10 @@
-const CACHE_NAME = "okayama-trip-v42";
+const CACHE_NAME = "okayama-trip-v43";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=41",
-  "./styles-6c.css?v=42",
-  "./app.js?v=42",
+  "./styles-6c.css?v=43",
+  "./app.js?v=43",
   "./firebase-config.js",
   "./manifest.webmanifest",
   "./assets/kansai_hiroshima_map.jpg",
@@ -47,6 +47,8 @@ const APP_SHELL = [
   "./assets/shopping/shopping-036.webp",
   "./assets/shopping/shopping-037.webp",
   "./assets/shopping/shopping-038.webp",
+  "./assets/shopping/shopping-039.webp",
+  "./assets/shopping/shopping-040.webp",
   "./icons/okayama-icon-192.png",
   "./icons/okayama-icon-512.png"
 ];
