@@ -818,17 +818,41 @@ function calculatePublicFundClosure(fund = calculatePublicFund()) {
 }
 
 function calculateTripSettlement(expenses = loadExpenses()) {
-  const directSharedExpenses = expenses.filter(
-    (expense) => expense.split && expenseMembers.includes(expense.payer)
+  const directExpenses = expenses.filter((expense) => expenseMembers.includes(expense.payer));
+  const directSharedExpenses = directExpenses.filter((expense) => expense.split);
+  const personalTransfers = directExpenses.filter(
+    (expense) =>
+      !expense.split
+      && expenseMembers.includes(expense.owner)
+      && expense.owner !== expense.payer
   );
-  const total = sumAmounts(directSharedExpenses);
+  const sharedTotal = sumAmounts(directSharedExpenses);
+  const personalTransferTotal = sumAmounts(personalTransfers);
+  const total = sharedTotal + personalTransferTotal;
   const members = expenseMembers.map((member) => {
-    const paid = sumAmounts(directSharedExpenses.filter((expense) => expense.payer === member));
-    const share = directSharedExpenses.reduce((sum, expense) => {
+    const sharedPaid = sumAmounts(directSharedExpenses.filter((expense) => expense.payer === member));
+    const sharedShare = directSharedExpenses.reduce((sum, expense) => {
       const otherShare = Math.floor(expense.amount / expenseMembers.length);
       return sum + (expense.payer === member ? expense.amount - otherShare : otherShare);
     }, 0);
-    return { member, paid, share, balance: paid - share };
+    const personalPaidForOther = sumAmounts(
+      personalTransfers.filter((expense) => expense.payer === member)
+    );
+    const personalOwedToOther = sumAmounts(
+      personalTransfers.filter((expense) => expense.owner === member)
+    );
+    const paid = sharedPaid + personalPaidForOther;
+    const share = sharedShare + personalOwedToOther;
+    return {
+      member,
+      paid,
+      share,
+      sharedPaid,
+      sharedShare,
+      personalPaidForOther,
+      personalOwedToOther,
+      balance: paid - share
+    };
   });
   const creditor = members.find((item) => item.balance > 0);
   const debtor = members.find((item) => item.balance < 0);
@@ -836,7 +860,7 @@ function calculateTripSettlement(expenses = loadExpenses()) {
     creditor && debtor
       ? `${debtor.member} 補 ${formatYen(Math.min(creditor.balance, Math.abs(debtor.balance)))} 給 ${creditor.member}`
       : "目前不用互補";
-  return { total, members, settlementText };
+  return { total, sharedTotal, personalTransferTotal, members, settlementText };
 }
 
 function calculateOverallSettlement(expenses = loadExpenses(), deposits = loadPublicFundDeposits()) {
@@ -2632,8 +2656,8 @@ function renderExpenseControls() {
     $("#expenseDayFilter").addEventListener("change", renderExpenses);
     $("#expenseCategoryFilter").addEventListener("change", renderExpenses);
     $("#expensePayerFilter").addEventListener("change", renderExpenses);
-    $("#expensePayer").addEventListener("change", updateExpenseOwnerVisibility);
-    $("#expenseSplit").addEventListener("change", updateExpenseOwnerVisibility);
+    $("#expensePayer").addEventListener("change", () => updateExpenseOwnerVisibility(true));
+    $("#expenseSplit").addEventListener("change", () => updateExpenseOwnerVisibility(true));
     $("#expenseForm").addEventListener("submit", addExpense);
     $("#publicFundForm").addEventListener("submit", addPublicFundDeposit);
     $("#expenseAddToggle").addEventListener("click", () => {
@@ -2651,15 +2675,17 @@ function renderExpenseControls() {
   updateExpenseOwnerVisibility();
 }
 
-function updateExpenseOwnerVisibility() {
+function updateExpenseOwnerVisibility(resetOwner = false) {
   const ownerField = $("#expenseOwnerField");
   const ownerSelect = $("#expenseOwner");
-  const needsOwner =
-    $("#expensePayer").value === publicExpenseAccount && $("#expenseSplit").value === "personal";
+  const payer = $("#expensePayer").value;
+  const needsOwner = $("#expenseSplit").value === "personal";
   ownerField.hidden = !needsOwner;
   ownerSelect.disabled = !needsOwner;
   ownerSelect.required = needsOwner;
-  if (needsOwner && !expenseMembers.includes(ownerSelect.value)) ownerSelect.value = expenseMembers[0];
+  if (needsOwner && (resetOwner || !expenseMembers.includes(ownerSelect.value))) {
+    ownerSelect.value = expenseMembers.includes(payer) ? payer : expenseMembers[0];
+  }
 }
 
 function addPublicFundDeposit(event) {
@@ -2863,7 +2889,7 @@ function addExpense(event) {
     category: $("#expenseCategory").value,
     payer,
     split,
-    owner: split ? "" : payer === publicExpenseAccount ? normalizeExpenseMember($("#expenseOwner").value) : payer,
+    owner: split ? "" : normalizeExpenseMember($("#expenseOwner").value),
     amount,
     name,
     note: $("#expenseNote").value.trim(),
@@ -2880,7 +2906,7 @@ function addExpense(event) {
   $("#expenseCategory").value = expense.category;
   $("#expensePayer").value = expense.payer;
   $("#expenseSplit").value = expense.split ? "split" : "personal";
-  $("#expenseOwner").value = expense.owner || expenseMembers[0];
+  $("#expenseOwner").value = expenseMembers.includes(expense.payer) ? expense.payer : expenseMembers[0];
   updateExpenseOwnerVisibility();
   $("#expenseName").focus();
   renderExpenses();
@@ -2921,7 +2947,7 @@ function renderExpenses() {
   const groupShares = Object.fromEntries(
     expenseMembers.map((member) => [
       member,
-      filteredDirectSettlement.members.find((item) => item.member === member).share
+      filteredDirectSettlement.members.find((item) => item.member === member).sharedShare
         + filteredPublicFund.sharedExpenseShares[member]
     ])
   );
@@ -2987,7 +3013,7 @@ function renderExpenses() {
     <div class="stat"><span>團體分帳</span><strong>${formatYen(groupTotal)}</strong>${renderTwdEstimate(groupTotal)}<span class="meta">XUN ${formatYen(groupShares.XUN)}／UT ${formatYen(groupShares.UT)}</span></div>
     <div class="stat"><span>個人支出</span><strong>${formatYen(personalTotal)}</strong>${renderTwdEstimate(personalTotal)}<span class="meta">不分帳項目</span></div>
     <div class="stat"><span>公帳支付</span><strong>${formatYen(publicAccountPaid)}</strong>${renderTwdEstimate(publicAccountPaid)}<span class="meta">目前篩選結果</span></div>
-    <div class="stat"><span>直接代付結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">只計 XUN / UT 直接代付的共同分帳</span></div>
+    <div class="stat"><span>直接代付結算</span><strong>${escapeHtml(settlement.settlementText)}</strong><span class="meta">計入共同分帳與替對方支付的個人支出</span></div>
     <div class="stat"><span>整趟最終結算</span><strong>${escapeHtml(overallSettlement.settlementText)}</strong><span class="meta">已合併直接代付、公帳投入、公帳支出與餘額調整</span></div>
     <div class="expense-breakdown payer-breakdown" aria-label="付款人小計">
       ${payerTotals
@@ -3005,7 +3031,7 @@ function renderExpenses() {
     <div class="expense-breakdown member-breakdown" aria-label="XUN 與 UT 直接代付結算">
       ${settlement.members
         .map(
-          ({ member, paid, share, balance }) => {
+          ({ member, paid, share, personalPaidForOther, personalOwedToOther, balance }) => {
             const result = balance > 0
               ? `結清後應收 ${formatYen(balance)}`
               : balance < 0
@@ -3014,8 +3040,9 @@ function renderExpenses() {
             return `
               <span>
                 <b>${escapeHtml(member)}</b>
-                分帳代付 ${formatYen(paid)}<br>
-                兩人各分攤 ${formatYen(share)}<br>
+                直接代付 ${formatYen(paid)}<br>
+                應分攤／受代付 ${formatYen(share)}<br>
+                替對方付 ${formatYen(personalPaidForOther)}／對方替付 ${formatYen(personalOwedToOther)}<br>
                 ${result}
               </span>
             `;
@@ -3045,7 +3072,7 @@ function renderExpenses() {
               <span class="recent-expense-category">${escapeHtml(expense.category)}</span>
               <div>
                 <strong>${escapeHtml(expense.name)}</strong>
-                <small>${escapeHtml(expense.payer)} 付 · ${expense.split ? "分帳" : "個人"}${expense.note ? ` · ${escapeHtml(expense.note)}` : ""}</small>
+                <small>${escapeHtml(expense.payer)} 付 · ${expense.split ? "分帳" : expense.owner === expense.payer ? "自己的" : `替 ${escapeHtml(expense.owner)} 付`}${expense.note ? ` · ${escapeHtml(expense.note)}` : ""}</small>
               </div>
               <b>${formatYen(expense.amount)}</b>
             </article>
