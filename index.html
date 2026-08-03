@@ -15,7 +15,7 @@
     <link rel="icon" href="./icons/okayama-icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="./icons/okayama-icon-192.png" />
     <link rel="stylesheet" href="./styles.css?v=36" />
-    <link rel="stylesheet" href="./styles-6c.css?v=45" />
+    <link rel="stylesheet" href="./styles-6c.css?v=48" />
   </head>
   <body>
     <div class="app-shell">
@@ -38,6 +38,17 @@
           </button>
         </div>
       </header>
+
+      <div class="app-status-stack">
+        <button class="global-sync-status is-local" id="globalSyncStatus" type="button" aria-label="查看旅行資料同步狀態">
+          <span class="global-sync-dot" aria-hidden="true"></span>
+          <strong id="globalSyncLabel">本機模式</strong>
+          <small id="globalSyncDetail">旅行資料保存在這支手機</small>
+        </button>
+        <button class="app-update-notice" id="appUpdateNotice" type="button" hidden>
+          已有新版，點此更新
+        </button>
+      </div>
 
       <main>
         <nav class="tabs" aria-label="主要功能">
@@ -93,7 +104,7 @@
                   </label>
                   <label>
                     密碼
-                    <input id="shoppingSyncPassword" type="password" minlength="6" autocomplete="current-password" placeholder="輸入測試密碼" />
+                    <input id="shoppingSyncPassword" type="password" minlength="6" autocomplete="current-password" placeholder="輸入同步密碼" />
                   </label>
                 </div>
                 <label class="shopping-sync-password-toggle" id="shoppingSyncPasswordToggle">
@@ -591,11 +602,40 @@
       </main>
     </div>
 
-    <script src="./app.js?v=46"></script>
+    <div class="undo-toast" id="undoToast" role="status" hidden>
+      <span id="undoToastMessage"></span>
+      <button id="undoToastAction" type="button">復原</button>
+    </div>
+
+    <script src="./app.js?v=49"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         window.addEventListener("load", () => {
-          navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+          const updateNotice = document.getElementById("appUpdateNotice");
+          const showUpdateNotice = () => {
+            if (updateNotice) updateNotice.hidden = false;
+          };
+          const hadController = Boolean(navigator.serviceWorker.controller);
+
+          updateNotice?.addEventListener("click", () => window.location.reload());
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (hadController) showUpdateNotice();
+          });
+
+          navigator.serviceWorker
+            .register("./service-worker.js")
+            .then((registration) => {
+              if (registration.waiting && navigator.serviceWorker.controller) showUpdateNotice();
+              registration.addEventListener("updatefound", () => {
+                const worker = registration.installing;
+                worker?.addEventListener("statechange", () => {
+                  if (worker.state === "installed" && navigator.serviceWorker.controller) showUpdateNotice();
+                });
+              });
+            })
+            .catch(() => {
+              window.dispatchEvent(new CustomEvent("okayama-pwa-error"));
+            });
         });
       }
     </script>

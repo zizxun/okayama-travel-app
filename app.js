@@ -340,6 +340,7 @@ const STORAGE_KEYS = {
   day17MeguRevision: "okayamaDay17MeguRevisionV1",
   itinerarySyncDirty: "okayamaItinerarySyncDirtyV1",
   memoSyncDirty: "okayamaMemoSyncDirtyV1",
+  syncOutbox: "okayamaSyncOutboxV1",
   memo: "okayamaTripMemo",
   expenses: "okayamaExpensesV1",
   weather: "okayamaWeatherCacheV1",
@@ -413,11 +414,18 @@ const state = {
   activeTab: "itinerary",
   editMode: false,
   expandedShoppingImages: new Set(),
+  undoTimer: null,
+  undoAction: null,
   shoppingSync: {
     available: false,
     connected: false,
     identity: "",
     pending: 0,
+    persistenceMode: "persistent",
+    statusMessage: "",
+    statusError: false,
+    outboxFlushing: false,
+    lastRemoteUpdate: null,
     pendingScopes: {
       shopping: 0,
       expenses: 0,
@@ -441,7 +449,9 @@ const state = {
     itineraryWriteTimers: new Map(),
     memoWriteTimer: null,
     deferredItineraryPayloads: new Map(),
-    deferredMemoText: null
+    deferredMemoText: null,
+    itineraryConflicts: new Map(),
+    memoConflict: null
   }
 };
 
@@ -922,6 +932,34 @@ function escapeHtml(value) {
 
 function escapeAttr(value) {
   return escapeHtml(value);
+}
+
+function hideUndoToast() {
+  if (state.undoTimer) clearTimeout(state.undoTimer);
+  state.undoTimer = null;
+  state.undoAction = null;
+  const toast = $("#undoToast");
+  if (toast) toast.hidden = true;
+}
+
+function showUndoToast(message, action) {
+  const toast = $("#undoToast");
+  if (!toast) return;
+  if (state.undoTimer) clearTimeout(state.undoTimer);
+  state.undoAction = action;
+  $("#undoToastMessage").textContent = message;
+  toast.hidden = false;
+  state.undoTimer = setTimeout(hideUndoToast, 7000);
+}
+
+function openSyncSettings() {
+  if (state.shoppingSync.itineraryConflicts.size) resolveItineraryConflicts();
+  if (state.shoppingSync.memoConflict) resolveMemoConflict();
+  setTab("shopping");
+  const panel = $("#shoppingSyncPanel");
+  if (!panel) return;
+  panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function focusEditor(selector) {
@@ -1637,23 +1675,192 @@ function getBundledShoppingImage(id, name) {
   return bundledShoppingItems.find((item) => item.id === id || item.name === name)?.image || "";
 }
 
-function setShoppingSyncMessage(message, isError = false) {
-  const element = $("#shoppingSyncMessage");
+function loadSyncOutbox() {
+  const saved = readJson(STORAGE_KEYS.syncOutbox, []);
+  if (!Array.isArray(saved)) return [];
+  return saved
+    .filter(
+      (operation) =>
+        operation
+        && ["shopping", "expenses", "publicFund"].includes(operation.scope)
+        && ["set", "update", "delete"].includes(operation.action)
+        && typeof operation.docId === "string"
+        && operation.docId
+    )
+    .slice(-500);
+}
+
+function saveSyncOutbox(operations) {
+  if (operations.length) {
+    writeJson(STORAGE_KEYS.syncOutbox, operations.slice(-500));
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.syncOutbox);
+  }
+}
+
+function enqueueSyncOperation(scope, docId, action, payload = {}) {
+  const operations = loadSyncOutbox();
+  const operationId = `${scope}:${docId}`;
+  const existingIndex = operations.findIndex((operation) => operation.id === operationId);
+  const existing = existingIndex >= 0 ? operations[existingIndex] : null;
+  let nextAction = action;
+  let nextPayload = payload;
+
+  if (existing && action === "update" && ["set", "update"].includes(existing.action)) {
+    nextAction = existing.action;
+    nextPayload = { ...existing.payload, ...payload };
+  }
+
+  const nextOperation = {
+    id: operationId,
+    scope,
+    docId,
+    action: nextAction,
+    payload: nextAction === "delete" ? {} : nextPayload,
+    queuedAt: Date.now()
+  };
+  if (existingIndex >= 0) operations.splice(existingIndex, 1);
+  operations.push(nextOperation);
+  saveSyncOutbox(operations);
+  renderShoppingSyncState();
+  if (state.shoppingSync.connected) void flushSyncOutbox();
+}
+
+function getDurablePendingCount() {
+  return (
+    loadSyncOutbox().length
+    + loadItinerarySyncDirtyKeys().size
+    + (localStorage.getItem(STORAGE_KEYS.memoSyncDirty) === "1" ? 1 : 0)
+  );
+}
+
+function getTotalSyncPendingCount() {
+  return Math.max(state.shoppingSync.pending, getDurablePendingCount());
+}
+
+function getSyncCollectionRef(scope) {
+  const sync = state.shoppingSync;
+  return {
+    shopping: sync.itemsRef,
+    expenses: sync.expensesRef,
+    publicFund: sync.publicFundRef
+  }[scope];
+}
+
+async function flushSyncOutbox() {
+  const sync = state.shoppingSync;
+  if (!sync.connected || sync.outboxFlushing || !loadSyncOutbox().length) return;
+  sync.outboxFlushing = true;
+  renderGlobalSyncState();
+
+  try {
+    while (sync.connected) {
+      const operation = loadSyncOutbox()[0];
+      if (!operation) break;
+      const collectionRef = getSyncCollectionRef(operation.scope);
+      if (!collectionRef) break;
+      const { deleteDoc, doc, serverTimestamp, setDoc, updateDoc, waitForPendingWrites } = sync.services;
+      const documentRef = doc(collectionRef, operation.docId);
+
+      if (operation.action === "delete") {
+        await deleteDoc(documentRef);
+      } else {
+        const payload = {
+          ...operation.payload,
+          updatedAt: serverTimestamp(),
+          updatedBy: sync.identity
+        };
+        if (operation.action === "set") {
+          await setDoc(documentRef, payload);
+        } else {
+          await updateDoc(documentRef, payload);
+        }
+      }
+
+      await waitForPendingWrites(sync.services.db);
+      const current = loadSyncOutbox();
+      const matching = current.find((item) => item.id === operation.id);
+      if (matching?.queuedAt === operation.queuedAt) {
+        saveSyncOutbox(current.filter((item) => item.id !== operation.id));
+      }
+      if (!sync.itineraryConflicts.size && !sync.memoConflict) {
+        sync.statusError = false;
+        sync.statusMessage = "";
+      }
+      renderShoppingSyncState();
+    }
+  } catch (error) {
+    setShoppingSyncMessage(`同步寫入失敗，已保留本機待重試：${error.code || error.message}`, true);
+  } finally {
+    sync.outboxFlushing = false;
+    renderShoppingSyncState();
+  }
+}
+
+function recordRemoteUpdate(data, label) {
+  const sync = state.shoppingSync;
+  const updatedBy = String(data?.updatedBy || "");
+  if (!updatedBy || updatedBy === sync.identity) return;
+  const millis = typeof data?.updatedAt?.toMillis === "function" ? data.updatedAt.toMillis() : Date.now();
+  if (!sync.lastRemoteUpdate || millis >= sync.lastRemoteUpdate.millis) {
+    sync.lastRemoteUpdate = { by: updatedBy, label, millis };
+  }
+}
+
+function renderGlobalSyncState() {
+  const element = $("#globalSyncStatus");
   if (!element) return;
-  element.textContent = message;
-  element.classList.toggle("error", isError);
+  const sync = state.shoppingSync;
+  const pending = getTotalSyncPendingCount();
+  const label = $("#globalSyncLabel");
+  const detail = $("#globalSyncDetail");
+  element.classList.remove("is-local", "is-connected", "is-pending", "is-error");
+
+  if (sync.statusError) {
+    element.classList.add("is-error");
+    label.textContent = "同步需要處理";
+    detail.textContent = sync.statusMessage || "點此查看同步狀態";
+  } else if (pending || sync.outboxFlushing) {
+    element.classList.add("is-pending");
+    label.textContent = navigator.onLine ? "等待同步" : "目前離線";
+    detail.textContent = `${pending || 1} 筆變更已保留在手機`;
+  } else if (sync.connected) {
+    element.classList.add("is-connected");
+    label.textContent = `${sync.identity} 已同步`;
+    detail.textContent = sync.lastRemoteUpdate
+      ? `最後由 ${sync.lastRemoteUpdate.by} 更新${sync.lastRemoteUpdate.label}`
+      : sync.persistenceMode === "persistent"
+        ? "旅行資料已同步"
+        : "目前僅使用暫存快取";
+  } else {
+    element.classList.add("is-local");
+    label.textContent = sync.available ? "同步未登入" : "本機模式";
+    detail.textContent = sync.available ? "點此登入共用旅行資料" : "旅行資料保存在這支手機";
+  }
+}
+
+function setShoppingSyncMessage(message, isError = false) {
+  state.shoppingSync.statusMessage = message;
+  state.shoppingSync.statusError = isError;
+  const element = $("#shoppingSyncMessage");
+  if (element) {
+    element.textContent = message;
+    element.classList.toggle("error", isError);
+  }
+  renderGlobalSyncState();
 }
 
 function renderShoppingSyncState(message = "") {
   const sync = state.shoppingSync;
   const panel = $("#shoppingSyncPanel");
   if (!panel) return;
+  const pending = getTotalSyncPendingCount();
 
   panel.classList.toggle("is-connected", sync.connected);
   $("#shoppingSyncTitle").textContent = sync.connected ? `${sync.identity} 同步中` : sync.available ? "同步未登入" : "本機模式";
   $("#shoppingSyncMeta").textContent = sync.connected
-    ? sync.pending
-      ? `${sync.pending} 筆等待同步`
+    ? pending
+      ? `${pending} 筆等待同步`
       : "旅行資料已同步"
     : sync.available
       ? "XUN／UT 共用旅行資料"
@@ -1677,13 +1884,16 @@ function renderShoppingSyncState(message = "") {
 
   if (message) {
     setShoppingSyncMessage(message);
+  } else if (sync.statusError) {
+    setShoppingSyncMessage(sync.statusMessage, true);
   } else if (sync.connected) {
-    setShoppingSyncMessage(sync.pending ? "變更會在恢復網路後送出" : "Firestore 即時同步");
+    setShoppingSyncMessage(pending ? "變更會在恢復網路後送出" : "Firestore 即時同步");
   } else if (sync.available) {
     setShoppingSyncMessage("登入後會先合併這支手機的購物、記帳、行程與備忘錄");
   } else {
     setShoppingSyncMessage("同步尚未設定，旅行資料仍可離線使用");
   }
+  renderGlobalSyncState();
 }
 
 function disconnectShoppingSubscription() {
@@ -1890,6 +2100,7 @@ async function migrateShoppingListToCloud() {
       })
     )
   );
+  await sync.services.waitForPendingWrites(sync.services.db);
   localStorage.setItem(STORAGE_KEYS.shoppingSyncMigration, "1");
 }
 
@@ -1936,6 +2147,7 @@ async function migrateLedgerToCloud() {
       })
     )
   ]);
+  await sync.services.waitForPendingWrites(sync.services.db);
   localStorage.setItem(STORAGE_KEYS.ledgerSyncMigration, "1");
 }
 
@@ -1946,39 +2158,72 @@ async function migrateContentToCloud() {
     getDocsFromServer(sync.itineraryRef),
     getDocFromServer(sync.memoRef)
   ]);
-  const cloudDayKeys = new Set(itinerarySnapshot.docs.map((dayDoc) => dayDoc.id));
+  const cloudDays = new Map(itinerarySnapshot.docs.map((dayDoc) => [dayDoc.id, dayDoc.data()]));
   const dirtyDayKeys = loadItinerarySyncDirtyKeys();
+  const writtenDays = [];
   const dayWrites = tripDays
-    .filter((day) => !cloudDayKeys.has(day.key) || dirtyDayKeys.has(day.key))
+    .filter((day) => !cloudDays.has(day.key) || dirtyDayKeys.has(day.key))
     .map((day) => {
       const payload = buildItinerarySyncPayload(day);
+      const cloudDay = cloudDays.get(day.key);
+      if (
+        cloudDay
+        && dirtyDayKeys.has(day.key)
+        && cloudDay.updatedBy
+        && cloudDay.payload !== payload
+      ) {
+        sync.itineraryConflicts.set(day.key, {
+          payload: cloudDay.payload,
+          updatedBy: cloudDay.updatedBy
+        });
+        setShoppingSyncMessage(`${cloudDay.updatedBy} 也修改了 ${day.date} 行程，請完成編輯後選擇版本`, true);
+        return Promise.resolve();
+      }
+      writtenDays.push({ dayKey: day.key, payload });
       return setDoc(doc(sync.itineraryRef, day.key), {
         payload,
         updatedAt: serverTimestamp(),
         updatedBy: sync.identity
-      }).then(() => {
-        const currentDay = tripDays.find((item) => item.key === day.key);
-        if (currentDay && buildItinerarySyncPayload(currentDay) === payload) {
-          clearItinerarySyncDirty(day.key);
-        }
       });
     });
 
   const memoText = String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000);
   const shouldWriteMemo = !memoSnapshot.exists() || localStorage.getItem(STORAGE_KEYS.memoSyncDirty) === "1";
-  const memoWrite = shouldWriteMemo
+  const cloudMemo = memoSnapshot.exists() ? memoSnapshot.data() : null;
+  const memoHasConflict = Boolean(
+    shouldWriteMemo
+    && cloudMemo
+    && cloudMemo.updatedBy
+    && String(cloudMemo.text || "").slice(0, 5000) !== memoText
+  );
+  if (memoHasConflict) {
+    sync.memoConflict = {
+      text: String(cloudMemo.text || "").slice(0, 5000),
+      updatedBy: cloudMemo.updatedBy
+    };
+    setShoppingSyncMessage(`${cloudMemo.updatedBy} 也修改了備忘錄，離開欄位時請選擇版本`, true);
+  }
+  const memoWrite = shouldWriteMemo && !memoHasConflict
     ? setDoc(sync.memoRef, {
         text: memoText,
         updatedAt: serverTimestamp(),
         updatedBy: sync.identity
-      }).then(() => {
-        if (String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000) === memoText) {
-          setMemoSyncDirty(false);
-        }
       })
     : Promise.resolve();
 
   await Promise.all([...dayWrites, memoWrite]);
+  await sync.services.waitForPendingWrites(sync.services.db);
+  writtenDays.forEach(({ dayKey, payload }) => {
+    const currentDay = tripDays.find((item) => item.key === dayKey);
+    if (currentDay && buildItinerarySyncPayload(currentDay) === payload) clearItinerarySyncDirty(dayKey);
+  });
+  if (
+    shouldWriteMemo
+    && !memoHasConflict
+    && String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000) === memoText
+  ) {
+    setMemoSyncDirty(false);
+  }
   localStorage.setItem(STORAGE_KEYS.contentSyncMigration, "1");
 }
 
@@ -1990,6 +2235,7 @@ function subscribeShoppingList() {
     query(sync.itemsRef, orderBy("createdAt", "asc")),
     { includeMetadataChanges: true },
     (snapshot) => {
+      snapshot.docs.forEach((itemDoc) => recordRemoteUpdate(itemDoc.data(), "購物清單"));
       const items = snapshot.docs.map(cloudShoppingItem).filter((item) => item.name);
       updateSyncPendingScope("shopping", snapshot);
       saveShoppingList(items);
@@ -2012,6 +2258,7 @@ function subscribeLedger() {
     query(sync.expensesRef, orderBy("createdAt", "desc")),
     { includeMetadataChanges: true },
     (snapshot) => {
+      snapshot.docs.forEach((expenseDoc) => recordRemoteUpdate(expenseDoc.data(), "記帳"));
       const expenses = snapshot.docs.map(cloudExpense).filter((expense) => expense.amount > 0 && expense.name);
       updateSyncPendingScope("expenses", snapshot);
       saveExpenses(expenses);
@@ -2028,6 +2275,7 @@ function subscribeLedger() {
     query(sync.publicFundRef, orderBy("createdAt", "desc")),
     { includeMetadataChanges: true },
     (snapshot) => {
+      snapshot.docs.forEach((depositDoc) => recordRemoteUpdate(depositDoc.data(), "公帳"));
       const deposits = snapshot.docs.map(cloudPublicFundDeposit).filter((deposit) => deposit.amount > 0);
       updateSyncPendingScope("publicFund", snapshot);
       savePublicFundDeposits(deposits);
@@ -2058,13 +2306,29 @@ function subscribeContent() {
       let changed = false;
 
       snapshot.docs.forEach((dayDoc) => {
-        if (dayDoc.metadata.hasPendingWrites || dirtyDayKeys.has(dayDoc.id)) return;
-        if (activeEditorHasFocus && dayDoc.id === state.activeDay) {
-          sync.deferredItineraryPayloads.set(dayDoc.id, dayDoc.data().payload);
+        const data = dayDoc.data();
+        recordRemoteUpdate(data, `${dayDoc.id.slice(-2)} 日行程`);
+        if (dayDoc.metadata.hasPendingWrites) return;
+        if (
+          dirtyDayKeys.has(dayDoc.id)
+          && data.updatedBy
+          && buildItinerarySyncPayload(tripDays.find((day) => day.key === dayDoc.id) || {}) !== data.payload
+        ) {
+          sync.itineraryConflicts.set(dayDoc.id, {
+            payload: data.payload,
+            updatedBy: data.updatedBy
+          });
+          setShoppingSyncMessage(`${data.updatedBy} 同時修改了 ${dayDoc.id.slice(-2)} 日行程，已先保留這支手機版本`, true);
           return;
         }
+        if (dirtyDayKeys.has(dayDoc.id)) return;
+        if (activeEditorHasFocus && dayDoc.id === state.activeDay) {
+          sync.deferredItineraryPayloads.set(dayDoc.id, data.payload);
+          return;
+        }
+        sync.itineraryConflicts.delete(dayDoc.id);
         sync.deferredItineraryPayloads.delete(dayDoc.id);
-        if (applyItinerarySyncPayload(dayDoc.id, dayDoc.data().payload)) changed = true;
+        if (applyItinerarySyncPayload(dayDoc.id, data.payload)) changed = true;
       });
 
       if (changed) {
@@ -2085,18 +2349,25 @@ function subscribeContent() {
     (snapshot) => {
       updateDocumentSyncPendingScope("memo", snapshot);
       const memo = $("#tripMemo");
-      if (
-        snapshot.exists()
-        && !snapshot.metadata.hasPendingWrites
-        && localStorage.getItem(STORAGE_KEYS.memoSyncDirty) !== "1"
-      ) {
-        const remoteText = String(snapshot.data().text || "").slice(0, 5000);
+      if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+        const data = snapshot.data();
+        const remoteText = String(data.text || "").slice(0, 5000);
+        recordRemoteUpdate(data, "備忘錄");
+        if (
+          localStorage.getItem(STORAGE_KEYS.memoSyncDirty) === "1"
+          && data.updatedBy
+          && remoteText !== String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000)
+        ) {
+          sync.memoConflict = { text: remoteText, updatedBy: data.updatedBy };
+          setShoppingSyncMessage(`${data.updatedBy} 同時修改了備忘錄，已先保留這支手機版本`, true);
+        } else if (localStorage.getItem(STORAGE_KEYS.memoSyncDirty) !== "1") {
         if (memo && document.activeElement === memo) {
           sync.deferredMemoText = remoteText;
         } else {
           localStorage.setItem(STORAGE_KEYS.memo, remoteText);
           if (memo) memo.value = remoteText;
           sync.deferredMemoText = null;
+        }
         }
       }
       renderShoppingSyncState();
@@ -2133,6 +2404,7 @@ async function connectShoppingSyncUser(user) {
   subscribeShoppingList();
   subscribeLedger();
   subscribeContent();
+  void flushSyncOutbox();
   $("#shoppingSyncPanel").open = false;
 }
 
@@ -2177,9 +2449,20 @@ async function logoutShoppingSync(silent = false) {
 
 function handleShoppingSyncWrite(promise, onSuccess) {
   setShoppingSyncMessage("變更正在同步");
+  const sync = state.shoppingSync;
   return promise
+    .then(async (result) => {
+      if (sync.services?.waitForPendingWrites && sync.services?.db) {
+        await sync.services.waitForPendingWrites(sync.services.db);
+      }
+      return result;
+    })
     .then((result) => {
       onSuccess?.(result);
+      if (!sync.itineraryConflicts.size && !sync.memoConflict) {
+        sync.statusError = false;
+        sync.statusMessage = "";
+      }
       return result;
     })
     .catch((error) => {
@@ -2188,9 +2471,67 @@ function handleShoppingSyncWrite(promise, onSuccess) {
     });
 }
 
+function clearResolvedConflictStatus() {
+  const sync = state.shoppingSync;
+  if (sync.itineraryConflicts.size || sync.memoConflict) return;
+  sync.statusError = false;
+  sync.statusMessage = "";
+  renderShoppingSyncState();
+}
+
+function resolveItineraryConflicts() {
+  const sync = state.shoppingSync;
+  if (!sync.itineraryConflicts.size) return;
+  let changed = false;
+  [...sync.itineraryConflicts.entries()].forEach(([dayKey, conflict]) => {
+    const day = tripDays.find((item) => item.key === dayKey);
+    const keepLocal = confirm(
+      `${conflict.updatedBy} 也修改了 ${day?.date || dayKey} 行程。\n\n確定：保留這支手機版本並同步\n取消：載入 ${conflict.updatedBy} 的版本`
+    );
+    sync.itineraryConflicts.delete(dayKey);
+    if (keepLocal) {
+      void syncItineraryDay(dayKey);
+    } else if (applyItinerarySyncPayload(dayKey, conflict.payload)) {
+      clearItinerarySyncDirty(dayKey);
+      changed = true;
+    }
+  });
+  if (changed) {
+    writeJson(STORAGE_KEYS.itinerary, tripDays);
+    renderDayNav();
+    renderDayDetail();
+  }
+  clearResolvedConflictStatus();
+}
+
+function resolveMemoConflict() {
+  const sync = state.shoppingSync;
+  const conflict = sync.memoConflict;
+  if (!conflict) return false;
+  const keepLocal = confirm(
+    `${conflict.updatedBy} 也修改了 Trip 備忘錄。\n\n確定：保留這支手機版本並同步\n取消：載入 ${conflict.updatedBy} 的版本`
+  );
+  sync.memoConflict = null;
+  if (keepLocal) {
+    void syncTripMemo();
+  } else {
+    const memo = $("#tripMemo");
+    localStorage.setItem(STORAGE_KEYS.memo, conflict.text);
+    if (memo) memo.value = conflict.text;
+    setMemoSyncDirty(false);
+  }
+  clearResolvedConflictStatus();
+  return true;
+}
+
 function syncItineraryDay(dayKey) {
   const sync = state.shoppingSync;
   if (!sync.connected) return Promise.resolve(null);
+  const conflict = sync.itineraryConflicts.get(dayKey);
+  if (conflict) {
+    setShoppingSyncMessage(`${conflict.updatedBy} 同時修改了 ${dayKey.slice(-2)} 日行程，完成編輯時請選擇版本`, true);
+    return Promise.resolve(null);
+  }
   const day = tripDays.find((item) => item.key === dayKey);
   if (!day) return Promise.resolve(null);
   const payload = buildItinerarySyncPayload(day);
@@ -2237,6 +2578,10 @@ function scheduleItinerarySync(dayKey, immediate = false) {
 function syncTripMemo() {
   const sync = state.shoppingSync;
   if (!sync.connected) return Promise.resolve(null);
+  if (sync.memoConflict) {
+    setShoppingSyncMessage(`${sync.memoConflict.updatedBy} 同時修改了備忘錄，離開欄位時請選擇版本`, true);
+    return Promise.resolve(null);
+  }
   const text = String(localStorage.getItem(STORAGE_KEYS.memo) || "").slice(0, 5000);
   const { serverTimestamp, setDoc } = sync.services;
   return handleShoppingSyncWrite(
@@ -2298,91 +2643,53 @@ function flushScheduledContentWrites() {
 }
 
 function syncShoppingItemCreate(item) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { doc, serverTimestamp, setDoc } = sync.services;
-  const itemId = item.id.replaceAll("/", "_").slice(0, 120);
-  handleShoppingSyncWrite(
-    setDoc(doc(sync.itemsRef, itemId), {
-      text: item.name,
-      done: item.done,
-      createdAt: Date.now(),
-      updatedAt: serverTimestamp(),
-      updatedBy: sync.identity
-    })
-  );
+  enqueueSyncOperation("shopping", safeCloudDocumentId(item.id), "set", {
+    text: item.name,
+    done: item.done,
+    createdAt: Date.now()
+  });
 }
 
 function syncShoppingItemUpdate(item) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { doc, serverTimestamp, updateDoc } = sync.services;
-  handleShoppingSyncWrite(
-    updateDoc(doc(sync.itemsRef, item.id), {
-      done: item.done,
-      updatedAt: serverTimestamp(),
-      updatedBy: sync.identity
-    })
-  );
+  enqueueSyncOperation("shopping", safeCloudDocumentId(item.id), "update", {
+    done: item.done
+  });
 }
 
 function syncShoppingItemDelete(itemId) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { deleteDoc, doc } = sync.services;
-  handleShoppingSyncWrite(deleteDoc(doc(sync.itemsRef, itemId)));
+  enqueueSyncOperation("shopping", safeCloudDocumentId(itemId), "delete");
 }
 
 function syncExpenseCreate(expense) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { doc, serverTimestamp, setDoc } = sync.services;
-  handleShoppingSyncWrite(
-    setDoc(doc(sync.expensesRef, safeCloudDocumentId(expense.id)), {
-      date: expense.date,
-      category: expense.category,
-      payer: expense.payer,
-      split: expense.split,
-      owner: expense.owner,
-      amount: expense.amount,
-      name: expense.name,
-      note: expense.note,
-      createdAt: localCreatedAtMillis(expense.createdAt),
-      updatedAt: serverTimestamp(),
-      updatedBy: sync.identity
-    })
-  );
+  enqueueSyncOperation("expenses", safeCloudDocumentId(expense.id), "set", {
+    date: expense.date,
+    category: expense.category,
+    payer: expense.payer,
+    split: expense.split,
+    owner: expense.owner,
+    amount: expense.amount,
+    name: expense.name,
+    note: expense.note,
+    createdAt: localCreatedAtMillis(expense.createdAt)
+  });
 }
 
 function syncExpenseDelete(expenseId) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { deleteDoc, doc } = sync.services;
-  handleShoppingSyncWrite(deleteDoc(doc(sync.expensesRef, safeCloudDocumentId(expenseId))));
+  enqueueSyncOperation("expenses", safeCloudDocumentId(expenseId), "delete");
 }
 
 function syncPublicFundDepositCreate(deposit) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { doc, serverTimestamp, setDoc } = sync.services;
-  handleShoppingSyncWrite(
-    setDoc(doc(sync.publicFundRef, safeCloudDocumentId(deposit.id)), {
-      date: deposit.date,
-      member: deposit.member,
-      amount: deposit.amount,
-      note: deposit.note,
-      createdAt: localCreatedAtMillis(deposit.createdAt),
-      updatedAt: serverTimestamp(),
-      updatedBy: sync.identity
-    })
-  );
+  enqueueSyncOperation("publicFund", safeCloudDocumentId(deposit.id), "set", {
+    date: deposit.date,
+    member: deposit.member,
+    amount: deposit.amount,
+    note: deposit.note,
+    createdAt: localCreatedAtMillis(deposit.createdAt)
+  });
 }
 
 function syncPublicFundDepositDelete(depositId) {
-  const sync = state.shoppingSync;
-  if (!sync.connected) return;
-  const { deleteDoc, doc } = sync.services;
-  handleShoppingSyncWrite(deleteDoc(doc(sync.publicFundRef, safeCloudDocumentId(depositId))));
+  enqueueSyncOperation("publicFund", safeCloudDocumentId(depositId), "delete");
 }
 
 async function initShoppingSync() {
@@ -2417,6 +2724,7 @@ async function initShoppingSync() {
       });
     } catch {
       db = firestoreModule.getFirestore(firebaseApp);
+      state.shoppingSync.persistenceMode = "memory";
     }
 
     Object.assign(state.shoppingSync, {
@@ -2545,13 +2853,23 @@ function renderShoppingList() {
   $all("[data-shopping-delete]").forEach((button) => {
     button.addEventListener("click", () => {
       const itemId = button.dataset.shoppingDelete;
-      const item = loadShoppingList().find((entry) => entry.id === itemId);
+      const originalItems = loadShoppingList();
+      const originalIndex = originalItems.findIndex((entry) => entry.id === itemId);
+      const item = originalItems[originalIndex];
       if (!item || !confirm(`確定要刪除「${item.name}」嗎？`)) return;
       state.expandedShoppingImages.delete(itemId);
-      const updated = loadShoppingList().filter((item) => item.id !== itemId);
+      const updated = originalItems.filter((entry) => entry.id !== itemId);
       saveShoppingList(updated);
       renderShoppingList();
       syncShoppingItemDelete(itemId);
+      showUndoToast(`已刪除「${item.name}」`, () => {
+        const current = loadShoppingList();
+        if (current.some((entry) => entry.id === item.id)) return;
+        current.splice(Math.min(originalIndex, current.length), 0, item);
+        saveShoppingList(current);
+        renderShoppingList();
+        syncShoppingItemCreate(item);
+      });
     });
   });
 
@@ -2715,10 +3033,23 @@ function addPublicFundDeposit(event) {
 }
 
 function deletePublicFundDeposit(id) {
+  const deposits = loadPublicFundDeposits();
+  const deposit = deposits.find((item) => item.id === id);
+  if (!deposit || !confirm(`確定刪除 ${deposit.member} 補入的 ${formatYen(deposit.amount)}？`)) return;
   savePublicFundDeposits(loadPublicFundDeposits().filter((deposit) => deposit.id !== id));
   syncPublicFundDepositDelete(id);
   renderPublicFund();
   renderExpenses();
+  showUndoToast(`已刪除 ${deposit.member} 的公帳補入`, () => {
+    const current = loadPublicFundDeposits();
+    if (current.some((item) => item.id === deposit.id)) return;
+    current.push(deposit);
+    current.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    savePublicFundDeposits(current);
+    syncPublicFundDepositCreate(deposit);
+    renderPublicFund();
+    renderExpenses();
+  });
 }
 
 function renderPublicFund() {
@@ -2914,10 +3245,23 @@ function addExpense(event) {
 }
 
 function deleteExpense(id) {
+  const expenses = loadExpenses();
+  const expense = expenses.find((item) => item.id === id);
+  if (!expense || !confirm(`確定刪除「${expense.name}」${formatYen(expense.amount)}？`)) return;
   saveExpenses(loadExpenses().filter((expense) => expense.id !== id));
   syncExpenseDelete(id);
   renderExpenses();
   renderPublicFund();
+  showUndoToast(`已刪除「${expense.name}」`, () => {
+    const current = loadExpenses();
+    if (current.some((item) => item.id === expense.id)) return;
+    current.push(expense);
+    current.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    saveExpenses(current);
+    syncExpenseCreate(expense);
+    renderExpenses();
+    renderPublicFund();
+  });
 }
 
 function renderExpenses() {
@@ -3180,7 +3524,7 @@ function exportExpensesCsv() {
 function buildLocalBackup() {
   return {
     app: "okayama-travel-app",
-    version: 6,
+    version: 7,
     exportedAt: new Date().toISOString(),
     data: {
       itinerary: tripDays,
@@ -3211,6 +3555,7 @@ function restoreLocalBackup(backup) {
   localStorage.removeItem(STORAGE_KEYS.shoppingSyncMigration);
   localStorage.removeItem(STORAGE_KEYS.ledgerSyncMigration);
   localStorage.removeItem(STORAGE_KEYS.contentSyncMigration);
+  localStorage.removeItem(STORAGE_KEYS.syncOutbox);
   localStorage.setItem(STORAGE_KEYS.memo, String(data.memo || "").slice(0, 5000));
   writeJson(STORAGE_KEYS.itinerarySyncDirty, data.itinerary.map((day) => day.key));
   setMemoSyncDirty(true);
@@ -3263,6 +3608,7 @@ function initTripMemo() {
   });
   memo.addEventListener("blur", () => {
     const sync = state.shoppingSync;
+    if (resolveMemoConflict()) return;
     if (localStorage.getItem(STORAGE_KEYS.memoSyncDirty) === "1") {
       sync.deferredMemoText = null;
       scheduleTripMemoSync(true);
@@ -3288,6 +3634,7 @@ async function clearLocalData() {
   localStorage.removeItem(STORAGE_KEYS.contentSyncMigration);
   localStorage.removeItem(STORAGE_KEYS.itinerarySyncDirty);
   localStorage.removeItem(STORAGE_KEYS.memoSyncDirty);
+  localStorage.removeItem(STORAGE_KEYS.syncOutbox);
   localStorage.removeItem(STORAGE_KEYS.memo);
   localStorage.removeItem(STORAGE_KEYS.expenses);
   localStorage.removeItem(STORAGE_KEYS.weather);
@@ -3301,6 +3648,10 @@ async function clearLocalData() {
   exchangeRateSettings = loadExchangeRateSettings();
   exchangeRateRequestStatus = "idle";
   state.activeDay = tripDays[0].key;
+  state.shoppingSync.itineraryConflicts.clear();
+  state.shoppingSync.memoConflict = null;
+  state.shoppingSync.statusError = false;
+  state.shoppingSync.statusMessage = "";
   const memo = $("#tripMemo");
   if (memo) memo.value = "";
   renderDayNav();
@@ -3321,9 +3672,11 @@ function init() {
   );
   $("#printBtn").addEventListener("click", () => window.print());
   $("#editModeToggle").addEventListener("click", () => {
+    const wasEditing = state.editMode;
     state.editMode = !state.editMode;
     syncEditButton();
     renderDayDetail();
+    if (wasEditing) resolveItineraryConflicts();
   });
   $("#dayDetail").addEventListener("focusout", () => {
     setTimeout(applyDeferredItinerarySync);
@@ -3334,6 +3687,17 @@ function init() {
   $("#importBackup").addEventListener("click", () => $("#backupFileInput").click());
   $("#backupFileInput").addEventListener("change", (event) => importLocalBackup(event.target.files?.[0]));
   $("#shoppingForm").addEventListener("submit", addShoppingItem);
+  $("#globalSyncStatus").addEventListener("click", openSyncSettings);
+  $("#undoToastAction").addEventListener("click", () => {
+    const action = state.undoAction;
+    hideUndoToast();
+    action?.();
+  });
+  window.addEventListener("online", () => {
+    renderGlobalSyncState();
+    void flushSyncOutbox();
+  });
+  window.addEventListener("offline", renderGlobalSyncState);
   void initShoppingSync();
 
   renderDayNav();
@@ -3347,6 +3711,7 @@ function init() {
   renderPublicFund();
   renderExpenses();
   renderTripWeather();
+  renderGlobalSyncState();
 }
 
 init();

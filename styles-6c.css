@@ -121,6 +121,123 @@ summary:focus-visible {
   background: var(--teal);
 }
 
+.app-status-stack {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.global-sync-status,
+.app-update-notice {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.78);
+  text-align: left;
+}
+
+.global-sync-status strong {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.global-sync-status small {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.global-sync-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #89938f;
+}
+
+.global-sync-status.is-connected .global-sync-dot {
+  background: var(--teal);
+}
+
+.global-sync-status.is-pending {
+  border-color: #d9bd6d;
+  background: #fff9e8;
+}
+
+.global-sync-status.is-pending .global-sync-dot {
+  background: #b88514;
+}
+
+.global-sync-status.is-error {
+  border-color: #e0a18f;
+  color: #8d321f;
+  background: #fff4f0;
+}
+
+.global-sync-status.is-error .global-sync-dot {
+  background: var(--vermilion);
+}
+
+.app-update-notice {
+  justify-content: center;
+  border-color: var(--teal);
+  color: #ffffff;
+  background: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.undo-toast {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  width: min(430px, calc(100% - 24px));
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px 9px 14px;
+  border: 1px solid #315a53;
+  border-radius: 7px;
+  color: #ffffff;
+  background: #173d37;
+  box-shadow: 0 10px 30px rgba(31, 43, 39, 0.22);
+}
+
+.undo-toast[hidden] {
+  display: none;
+}
+
+.undo-toast span {
+  min-width: 0;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.undo-toast button {
+  min-width: 56px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 5px;
+  color: #ffffff;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
 .tabs {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   top: 0;
@@ -3480,7 +3597,13 @@ summary:focus-visible {
 @media (max-width: 860px) {
   #expenses input,
   #expenses select,
-  #expenses textarea {
+  #expenses textarea,
+  #shoppingSyncPanel input,
+  #shoppingSyncPanel select,
+  #itinerary .editable-slot .time-input,
+  #itinerary .editable-slot .item-input,
+  #itinerary .editable-slot .transport-editor input,
+  #itinerary .editable-slot select {
     font-size: 16px;
   }
 }

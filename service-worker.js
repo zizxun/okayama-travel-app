@@ -1,10 +1,10 @@
-const CACHE_NAME = "okayama-trip-v46";
+const CACHE_NAME = "okayama-trip-v49";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=41",
-  "./styles-6c.css?v=45",
-  "./app.js?v=46",
+  "./styles-6c.css?v=48",
+  "./app.js?v=49",
   "./firebase-config.js",
   "./manifest.webmanifest",
   "./assets/kansai_hiroshima_map.jpg",
@@ -83,11 +83,16 @@ self.addEventListener("fetch", (event) => {
 
       return fetch(event.request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
           return response;
         })
-        .catch(() => caches.match("./index.html"));
+        .catch(() => {
+          if (event.request.mode === "navigate") return caches.match("./index.html");
+          return Response.error();
+        });
     })
   );
 });
