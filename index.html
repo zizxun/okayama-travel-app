@@ -39,16 +39,9 @@
         </div>
       </header>
 
-      <div class="app-status-stack">
-        <button class="global-sync-status is-local" id="globalSyncStatus" type="button" aria-label="查看旅行資料同步狀態">
-          <span class="global-sync-dot" aria-hidden="true"></span>
-          <strong id="globalSyncLabel">本機模式</strong>
-          <small id="globalSyncDetail">旅行資料保存在這支手機</small>
-        </button>
-        <button class="app-update-notice" id="appUpdateNotice" type="button" hidden>
-          已有新版，點此更新
-        </button>
-      </div>
+      <button class="app-update-notice" id="appUpdateNotice" type="button" hidden>
+        已有新版，點此更新
+      </button>
 
       <main>
         <nav class="tabs" aria-label="主要功能">
@@ -607,24 +600,41 @@
       <button id="undoToastAction" type="button">復原</button>
     </div>
 
-    <script src="./app.js?v=49"></script>
+    <script src="./app.js?v=50"></script>
     <script>
       if ("serviceWorker" in navigator && location.protocol !== "file:") {
         window.addEventListener("load", () => {
           const updateNotice = document.getElementById("appUpdateNotice");
+          let registrationRef = null;
+          let updateRequested = false;
           const showUpdateNotice = () => {
             if (updateNotice) updateNotice.hidden = false;
           };
           const hadController = Boolean(navigator.serviceWorker.controller);
 
-          updateNotice?.addEventListener("click", () => window.location.reload());
+          updateNotice?.addEventListener("click", () => {
+            updateRequested = true;
+            updateNotice.disabled = true;
+            updateNotice.textContent = "正在更新...";
+            if (registrationRef?.waiting) {
+              registrationRef.waiting.postMessage({ type: "SKIP_WAITING" });
+            } else {
+              window.location.reload();
+            }
+          });
           navigator.serviceWorker.addEventListener("controllerchange", () => {
-            if (hadController) showUpdateNotice();
+            if (!hadController) return;
+            if (updateRequested) {
+              window.location.reload();
+            } else {
+              showUpdateNotice();
+            }
           });
 
           navigator.serviceWorker
             .register("./service-worker.js")
             .then((registration) => {
+              registrationRef = registration;
               if (registration.waiting && navigator.serviceWorker.controller) showUpdateNotice();
               registration.addEventListener("updatefound", () => {
                 const worker = registration.installing;

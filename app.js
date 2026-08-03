@@ -3687,7 +3687,7 @@ function init() {
   $("#importBackup").addEventListener("click", () => $("#backupFileInput").click());
   $("#backupFileInput").addEventListener("change", (event) => importLocalBackup(event.target.files?.[0]));
   $("#shoppingForm").addEventListener("submit", addShoppingItem);
-  $("#globalSyncStatus").addEventListener("click", openSyncSettings);
+  $("#globalSyncStatus")?.addEventListener("click", openSyncSettings);
   $("#undoToastAction").addEventListener("click", () => {
     const action = state.undoAction;
     hideUndoToast();

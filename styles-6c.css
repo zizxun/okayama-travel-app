@@ -121,13 +121,6 @@ summary:focus-visible {
   background: var(--teal);
 }
 
-.app-status-stack {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 10px;
-}
-
-.global-sync-status,
 .app-update-notice {
   width: 100%;
   min-height: 44px;
@@ -142,51 +135,6 @@ summary:focus-visible {
   text-align: left;
 }
 
-.global-sync-status strong {
-  flex: 0 0 auto;
-  color: var(--ink);
-  font-size: 0.76rem;
-}
-
-.global-sync-status small {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.global-sync-dot {
-  width: 9px;
-  height: 9px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #89938f;
-}
-
-.global-sync-status.is-connected .global-sync-dot {
-  background: var(--teal);
-}
-
-.global-sync-status.is-pending {
-  border-color: #d9bd6d;
-  background: #fff9e8;
-}
-
-.global-sync-status.is-pending .global-sync-dot {
-  background: #b88514;
-}
-
-.global-sync-status.is-error {
-  border-color: #e0a18f;
-  color: #8d321f;
-  background: #fff4f0;
-}
-
-.global-sync-status.is-error .global-sync-dot {
-  background: var(--vermilion);
-}
-
 .app-update-notice {
   justify-content: center;
   border-color: var(--teal);
@@ -194,7 +142,12 @@ summary:focus-visible {
   background: var(--teal);
   font-size: 0.8rem;
   font-weight: 900;
+  margin: 0 0 10px;
   text-align: center;
+}
+
+.app-update-notice[hidden] {
+  display: none;
 }
 
 .undo-toast {

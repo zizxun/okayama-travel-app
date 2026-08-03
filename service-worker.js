@@ -1,10 +1,10 @@
-const CACHE_NAME = "okayama-trip-v49";
+const CACHE_NAME = "okayama-trip-v50";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=41",
-  "./styles-6c.css?v=48",
-  "./app.js?v=49",
+  "./styles-6c.css?v=49",
+  "./app.js?v=50",
   "./firebase-config.js",
   "./manifest.webmanifest",
   "./assets/kansai_hiroshima_map.jpg",
@@ -58,6 +58,10 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
   self.skipWaiting();
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
